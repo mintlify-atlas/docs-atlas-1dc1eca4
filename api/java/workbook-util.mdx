@@ -1,0 +1,148 @@
+---
+title: "WorkbookUtil — Java API reference"
+sidebarTitle: "WorkbookUtil"
+description: "API reference for WorkbookUtil in in.org.quicko.sheet:core: converts a Workbook bean to an XSSFWorkbook using Apache POI for XLSX export."
+---
+
+## Overview
+
+`WorkbookUtil` is a static utility class that converts a Sheet JSON [`Workbook`](/api/java/workbook) bean into an Apache POI `XSSFWorkbook`, ready for writing to an `.xlsx` file or stream. It is the primary bridge between the Sheet JSON data model and the XLSX format.
+
+**Package:** `in.org.quicko.sheet.utils`
+
+```java
+import in.org.quicko.sheet.utils.WorkbookUtil;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+```
+
+---
+
+## Method
+
+### `toExcel(Workbook workbook)`
+
+```java
+public static XSSFWorkbook toExcel(Workbook workbook) throws IOException
+```
+
+Converts the given [`Workbook`](/api/java/workbook) to an Apache POI `XSSFWorkbook`.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `workbook` | `Workbook` | The Sheet JSON workbook to convert |
+
+**Returns:** `XSSFWorkbook` — a fully populated Apache POI workbook ready for writing to a stream or file.
+
+**Throws:** `java.io.IOException` — if an error occurs during workbook construction.
+
+---
+
+## Conversion behaviour
+
+The method iterates every `Sheet` in the workbook and every `Block` in each sheet, applying the following rules:
+
+### Sheet creation
+
+Each `Sheet` in the workbook becomes a new `XSSFSheet` in the `XSSFWorkbook`. The sheet name is taken from `Sheet.getName()`.
+
+### Table blocks
+
+For each [`Table`](/api/java/table) block encountered:
+
+1. **Title row** — A merged cell spanning all header columns is created one row above the header. The cell is center-aligned both horizontally and vertically, and its value is set to the table's name.
+2. **Header row** — The header `JSONArray` from `Table.getHeader()` is written to an `XSSFRow`; each element becomes a string cell.
+3. **Data rows** — Each row from `Table.getRows()` is written to successive `XSSFRow` objects. Cell values are mapped to POI cell types as follows:
+
+| Java type | POI cell value call |
+|---|---|
+| `null` | Empty cell created |
+| `String` | `setCellValue(String)` |
+| `BigDecimal` | `setCellValue(double)` via `.doubleValue()` |
+| `Integer` | `setCellValue(int)` |
+| `Double` | `setCellValue(double)` |
+| `Long` | `setCellValue(long)` |
+| Other | `setCellValue(toString())` |
+
+4. **Auto-size** — After writing all rows, every column in the table is auto-sized using `XSSFSheet.autoSizeColumn(int)`.
+
+### List blocks
+
+For each [`List`](/api/java/list) block encountered:
+
+1. **Title row** — A merged cell spanning two columns (key + value) is created. The cell is center-aligned and its value is set to the list's name.
+2. **Data rows** — Each `Item` in the list is written as a two-column row: column 0 holds the key string, column 1 holds the value. Value types are mapped as follows:
+
+| Java type | POI cell value call |
+|---|---|
+| `null` key or value | Empty cell created |
+| `String` | `setCellValue(String)` |
+| `BigDecimal` | `setCellValue(toString())` |
+| `BigInteger` | `setCellValue(toString())` |
+| `Boolean` | `setCellValue(boolean)` |
+| `Long` | `setCellValue(long)` |
+| `Double` | `setCellValue(double)` |
+| `Integer` | `setCellValue(int)` |
+| Other | `setCellValue(toString())` |
+
+3. **Auto-size** — Both columns are auto-sized after all items are written.
+
+### Row spacing
+
+A two-row gap is inserted between blocks to improve readability when multiple blocks exist in the same sheet.
+
+---
+
+## Code example
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.Table;
+import in.org.quicko.sheet.beans.List;
+import in.org.quicko.sheet.utils.WorkbookUtil;
+import in.org.quicko.sheet.mapper.JsonMapper;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.json.JSONArray;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+
+// Build a workbook
+Workbook workbook = new Workbook();
+
+Sheet sheet = new Sheet();
+sheet.setName("Report");
+
+Table table = new Table();
+table.setName("Sales");
+table.setHeader(new JSONArray(java.util.List.of("Product", "Units", "Revenue")));
+table.addRow(new JSONArray(java.util.List.of("Widget A", 120, 2400.00)));
+table.addRow(new JSONArray(java.util.List.of("Widget B",  85, 1700.00)));
+sheet.addBlock(table);
+
+List summary = new List();
+summary.setName("Summary");
+summary.addItem("totalRevenue", 4100.00);
+summary.addItem("period", "Q1 2025");
+sheet.addBlock(summary);
+
+workbook.addSheet(sheet);
+
+// Convert to XLSX and write to a file
+XSSFWorkbook excel = WorkbookUtil.toExcel(workbook);
+try (FileOutputStream fos = new FileOutputStream("output.xlsx")) {
+    excel.write(fos);
+}
+excel.close();
+```
+
+---
+
+## Notes
+
+- `WorkbookUtil` is a pure static helper class with no instance state; it does not need to be instantiated.
+- The returned `XSSFWorkbook` implements `java.io.Closeable`. Always close it after writing to free POI resources.
+- Column auto-sizing requires that fonts are available on the system. In headless server environments, pass the JVM flag `-Djava.awt.headless=true` to avoid `HeadlessException`.
+- Blocks that are neither `Table` nor `List` subtypes are silently skipped.

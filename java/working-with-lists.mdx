@@ -1,0 +1,161 @@
+---
+title: "Working with List blocks in the Java library"
+sidebarTitle: "Lists"
+description: "Create and query List beans — key-value pair containers — with the Java Sheet JSON library. Covers typed Item accessors and serialization with JsonMapper."
+---
+
+A `List` block holds an ordered collection of `Item` objects, where each `Item` is a key-value pair. Unlike a `Table`, a `List` has no fixed schema — keys are arbitrary strings and values can be of different types within the same list. `List` extends `Block`, so it can be attached to a `Sheet` alongside `Table` blocks.
+
+## Creating a list and adding items
+
+Instantiate `List`, give it a name, and add items using the typed `addItem` overloads:
+
+```java
+import in.org.quicko.sheet.beans.List;
+import java.math.BigDecimal;
+
+List config = new List();
+config.setName("app config list");
+
+// String value
+config.addItem("environment", "production");
+
+// BigDecimal value (exact decimal arithmetic)
+config.addItem("tax_rate", new BigDecimal("0.18"));
+
+// Long value
+config.addItem("max_connections", 500L);
+
+// Boolean value
+config.addItem("maintenance_mode", false);
+```
+
+The full set of typed `addItem` overloads is:
+
+| Signature | Stored as |
+|---|---|
+| `addItem(String key, String value)` | `String` |
+| `addItem(String key, BigDecimal value)` | `BigDecimal` |
+| `addItem(String key, BigInteger value)` | `BigDecimal` (via `new BigDecimal(value)`) |
+| `addItem(String key, Boolean value)` | `Boolean` |
+| `addItem(String key, Long value)` | `BigDecimal` (via `BigDecimal.valueOf`) |
+| `addItem(String key, Double value)` | `BigDecimal` (via `BigDecimal.valueOf`) |
+| `addItem(String key, Float value)` | `BigDecimal` (via `BigDecimal.valueOf`) |
+| `addItem(String key, Integer value)` | `BigDecimal` (via `BigDecimal.valueOf`) |
+
+Numeric values (except `String` and `Boolean`) are normalized to `BigDecimal` internally to preserve precision across JSON round-trips.
+
+## Looking up items
+
+`getItem(String key)` performs a **case-insensitive** key lookup and returns the matching `Item`, or `null` if no match is found. `getItem(int index)` returns the item at a zero-based position, or `null` if the index is out of range. `getItems()` returns the full `java.util.List<Item>`:
+
+```java
+// Look up by key (case-insensitive)
+Item env = config.getItem("Environment"); // matches "environment"
+System.out.println(env.getStringValue()); // "production"
+
+// Look up by position
+Item second = config.getItem(1); // "tax_rate"
+
+// Iterate over all items
+for (Item item : config.getItems()) {
+    System.out.println(item.getKey() + " = " + item.getValue());
+}
+```
+
+## Item accessors
+
+Each `Item` exposes typed getters that cast the stored value to the requested type. Choose the getter that matches the type you passed to `addItem`:
+
+| Method | Returns | Notes |
+|---|---|---|
+| `getKey()` | `String` | Always safe to call |
+| `getValue()` | `Object` | Raw stored value |
+| `getStringValue()` | `String` | Use when value was added as `String` |
+| `getBigDecimalValue()` | `BigDecimal` | Use for exact decimal values |
+| `getBigIntegerValue()` | `BigInteger` | Derived via `BigDecimal.toBigInteger()` |
+| `getBooleanValue()` | `Boolean` | Use when value was added as `Boolean` |
+| `getLongValue()` | `Long` | Derived via `BigDecimal.longValue()` |
+| `getDoubleValue()` | `Double` | Derived via `BigDecimal.doubleValue()` |
+| `getIntegerValue()` | `Integer` | Derived via `BigDecimal.intValue()` |
+
+All typed getters return `null` if the stored value is `null`. Calling a getter for the wrong type (for example, calling `getBigDecimalValue()` on a `Boolean` item) will throw a `ClassCastException`.
+
+```java
+Item taxRate = config.getItem("tax_rate");
+BigDecimal rate = taxRate.getBigDecimalValue(); // 0.18
+
+Item maxConn = config.getItem("max_connections");
+Long connections = maxConn.getLongValue(); // 500
+
+Item flag = config.getItem("maintenance_mode");
+Boolean maintenance = flag.getBooleanValue(); // false
+```
+
+## Updating items
+
+Use `replaceItem(Item item)` to swap an existing item matched by key (case-insensitive), `replaceItem(int index, Item item)` to overwrite by position, `removeItem(String key)` to delete by key, and `removeItem(int index)` to delete by position:
+
+```java
+import in.org.quicko.sheet.beans.Item;
+
+// Replace by key — finds "tax_rate" and replaces it
+config.replaceItem(new Item("tax_rate", new BigDecimal("0.20")));
+
+// Replace by index — overwrites position 2
+config.replaceItem(2, new Item("max_connections", 1000L));
+
+// Remove by key
+config.removeItem("maintenance_mode");
+
+// Remove by index
+config.removeItem(0);
+```
+
+## XLSX naming rule
+
+When a workbook is exported to XLSX via `WorkbookUtil.toExcel`, each block's name is used as a section title in the spreadsheet. For `List` blocks to be recognized correctly on import by the Node.js library, the block name **must end with the word `list`** (case-insensitive) — for example `"app config list"` or `"settings_list"`.
+
+```java
+List settings = new List();
+settings.setName("settings_list"); // ✅ ends with "list" — importable from XLSX
+```
+
+## Practical example — application config
+
+```java
+import in.org.quicko.sheet.beans.List;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.mapper.JsonMapper;
+import java.math.BigDecimal;
+
+// Build the list
+List appConfig = new List();
+appConfig.setName("app config list");
+
+appConfig.addItem("app_name",        "Payments Dashboard");
+appConfig.addItem("version",         "3.2.1");
+appConfig.addItem("tax_rate",        new BigDecimal("0.18"));
+appConfig.addItem("session_timeout", 3600L);
+appConfig.addItem("debug_mode",      false);
+
+// Attach to a sheet and workbook
+Sheet sheet = new Sheet();
+sheet.setName("config");
+sheet.addBlock(appConfig);
+
+Workbook workbook = new Workbook();
+workbook.addSheet(sheet);
+
+// Serialize to JSON
+JsonMapper mapper = new JsonMapper();
+String json = mapper.writeValueAsString(workbook);
+System.out.println(json);
+
+// Deserialize and read back
+Workbook restored = mapper.readValue(json, Workbook.class);
+List restoredList = (List) restored.getSheets().get(0).getBlock("app config list");
+System.out.println(restoredList.getItem("app_name").getStringValue()); // "Payments Dashboard"
+System.out.println(restoredList.getItem("session_timeout").getLongValue()); // 3600
+```

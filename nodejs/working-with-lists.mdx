@@ -1,0 +1,162 @@
+---
+title: "Working with List blocks in the Node.js library"
+sidebarTitle: "Lists"
+description: "Create, query, and update List blocks — key-value pair containers — with the @org-quicko/sheet Node.js library. Covers Item creation and typed value access."
+---
+
+A `List` is `@org-quicko/sheet`'s key-value block type. Where a `Table` models uniform rows of columnar data, a `List` is designed for heterogeneous records: application configuration, report summaries, audit metadata, or any named collection of values that do not share a schema. Each entry in a `List` is an `Item` — a typed key-value pair whose value is any `JSONValue` (string, number, boolean, `null`, `JSONObject`, or `JSONArray`). Like `Table`, a `List` lives inside a `Sheet` and is attached to it with `sheet.addBlock(list)`.
+
+## Creating a List
+
+Instantiate a `List` with `new List()` and add entries immediately with `addItem(new Item(key, value))`:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, List, Item } from '@org-quicko/sheet';
+
+const workbook = new Workbook();
+const sheet    = new Sheet();
+
+const config = new List();
+config.addItem(new Item('environment', 'production'));
+config.addItem(new Item('version',     '2.4.1'));
+config.addItem(new Item('debugMode',   false));
+
+sheet.addBlock(config);
+workbook.addSheet(sheet);
+```
+
+The `List` constructor initializes an empty `Item` array. You can also construct an empty `List` and populate it later — both patterns are equally valid.
+
+## Looking Up Items
+
+Retrieve a single item by its key with `getItem(key)`. The lookup is **case-insensitive**: `'environment'`, `'Environment'`, and `'ENVIRONMENT'` all resolve to the same item. The method returns `null` when no match is found. Use `getItems()` to retrieve the full ordered array of items:
+
+```typescript
+const env = config.getItem('environment');
+console.log(env?.getValue()); // 'production'
+
+// Case-insensitive — same result
+const same = config.getItem('ENVIRONMENT');
+console.log(same?.getValue()); // 'production'
+
+// Not found
+const missing = config.getItem('nonExistent');
+console.log(missing); // null
+
+// All items
+const allItems = config.getItems();
+allItems.forEach(item => {
+  console.log(`${item.getKey()}: ${item.getValue()}`);
+});
+```
+
+## Typed Value Access on Item
+
+`Item` exposes four accessor methods that coerce the stored `JSONValue` to a specific primitive type without requiring manual casting:
+
+```typescript
+const versionItem = new Item('version', 3);
+
+versionItem.getValue();        // 3       — raw JSONValue
+versionItem.getStringValue();  // '3'     — String(value)
+versionItem.getNumberValue();  // 3       — Number(value); NaN if not numeric
+versionItem.getBooleanValue(); // true    — Boolean(value)
+
+const debugItem = new Item('debugMode', false);
+debugItem.getBooleanValue();   // false
+
+const codeItem = new Item('code', 'abc');
+codeItem.getNumberValue();     // NaN     — non-numeric string
+```
+
+`getNumberValue()` returns `NaN` (not `null`) when the value cannot be coerced to a valid number, so always check with `Number.isNaN()` before using the result in arithmetic.
+
+## Item Equality
+
+`item.equals(otherItem)` returns `true` when the **key** (compared case-insensitively) and the **value** (compared by strict equality `===`) both match:
+
+```typescript
+const a = new Item('Status', 'active');
+const b = new Item('status', 'active');
+const c = new Item('status', 'inactive');
+
+a.equals(b); // true  — keys match case-insensitively, values are identical
+a.equals(c); // false — values differ
+```
+
+## Updating Items
+
+Replace an existing item in place with `replaceItem(item)` — the match is made by key. If no item with that key exists, the call is silently ignored; it does **not** insert a new item:
+
+```typescript
+// Updates the 'version' item in place
+config.replaceItem(new Item('version', '3.0.0'));
+
+// No-op — 'nonExistent' is not in the list
+config.replaceItem(new Item('nonExistent', 'value'));
+console.log(config.getItem('nonExistent')); // null
+```
+
+Remove an item by its zero-based position with `removeItem(index: number)`, or remove all items whose key matches a given string with `removeItem(key: string)`. The key-based overload is case-insensitive:
+
+```typescript
+// Remove the item at index 0
+config.removeItem(0);
+
+// Remove all items whose key is 'debugMode' (case-insensitive)
+config.removeItem('debugMode');
+config.removeItem('DEBUGMODE'); // identical effect
+```
+
+## Adding Multiple Items
+
+Use `addItems(items: Item[])` to append several items in a single call:
+
+```typescript
+config.addItems([
+  new Item('owner',      'platform-team'),
+  new Item('maxRetries', 5),
+  new Item('timeout',    30000),
+]);
+```
+
+## XLSX Naming Rule
+
+<Note>
+  For a `List` block to be correctly identified during XLSX import, its name must end with the word **`'list'`** (case-insensitive). A block named `"settings_list"`, `"Config List"`, or `"SUMMARY LIST"` is imported as a `List`. A block whose name does not end in `'list'` is treated as a `Table`. See [XLSX Import & Export](nodejs/xlsx-import-export) for the full detection rules.
+</Note>
+
+## Practical Example
+
+The following example creates a `List` holding application configuration settings with five realistic key-value entries:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, List, Item } from '@org-quicko/sheet';
+
+const workbook = new Workbook();
+const sheet    = new Sheet();
+
+const appConfig = new List();
+appConfig.addItems([
+  new Item('app_name',     'Reporting Service'),
+  new Item('environment',  'production'),
+  new Item('api_version',  'v3'),
+  new Item('rate_limit',   500),
+  new Item('feature_flag', true),
+]);
+
+sheet.addBlock(appConfig);
+workbook.addSheet(sheet);
+
+// Read back
+const list = workbook.getSheet(0).getBlock(0) as List;
+
+console.log(list.getItem('app_name')?.getValue());     // 'Reporting Service'
+console.log(list.getItem('rate_limit')?.getNumberValue()); // 500
+console.log(list.getItem('feature_flag')?.getBooleanValue()); // true
+console.log(list.length()); // 5
+```

@@ -1,0 +1,401 @@
+---
+title: "Table class — Node.js API reference"
+sidebarTitle: "Table"
+description: "Full API reference for the Table class in @org-quicko/sheet: header and row operations, column projection, and inherited methods."
+---
+
+## Overview
+
+`Table` is a block type that represents a two-dimensional, column-oriented dataset. It holds a **header** row (`JSONArray` of column-name strings) and zero or more **data rows** (each a `JSONArray` of cell values). It is one of the two concrete block types that can be added to a [`Sheet`](/api/nodejs/sheet); the other is [`List`](/api/nodejs/list).
+
+`Table` extends `Block`, which extends [`BaseObject`](#inherited-baseobject-methods).
+
+```typescript
+import { JSONArray } from '@org-quicko/core';
+import { Table, Row, Sheet } from '@org-quicko/sheet';
+
+const table = new Table();
+
+// Set column headers
+const header = new JSONArray();
+header.push('id', 'name', 'amount');
+table.setHeader(header);
+
+// Add rows
+table.addRow(new Row([1, 'Alice', 500]));
+table.addRow(new Row([2, 'Bob',   300]));
+
+const sheet = new Sheet();
+sheet.addBlock(table);
+```
+
+---
+
+## Constructor
+
+### `new Table()`
+
+Creates a new `Table` with an empty header and an empty rows array.
+
+```typescript
+const table = new Table();
+```
+
+---
+
+## Header
+
+### `getHeader()`
+
+Returns the table's header row.
+
+**Signature**
+
+```typescript
+getHeader(): JSONArray
+```
+
+<ResponseField name="returns" type="JSONArray">
+  A `JSONArray` of column-name strings. Returns an empty `JSONArray` until `setHeader` is called.
+</ResponseField>
+
+**Example**
+
+```typescript
+const header = table.getHeader();
+console.log(header[0]); // 'id'
+```
+
+---
+
+### `setHeader(header)`
+
+Replaces the table's header row.
+
+**Signature**
+
+```typescript
+setHeader(header: JSONArray): void
+```
+
+<ParamField path="header" type="JSONArray" required>
+  A `JSONArray` of column-name strings. The length of this array determines how many columns each row should contain.
+</ParamField>
+
+**Example**
+
+```typescript
+import { JSONArray } from '@org-quicko/core';
+
+const header = new JSONArray();
+header.push('sku', 'quantity', 'price_epoch');
+table.setHeader(header);
+```
+
+---
+
+## Row operations
+
+### `getRows()`
+
+Returns the raw rows container.
+
+**Signature**
+
+```typescript
+getRows(): JSONArray
+```
+
+<ResponseField name="returns" type="JSONArray">
+  A `JSONArray` where each element is itself a `JSONArray` representing one data row.
+</ResponseField>
+
+**Example**
+
+```typescript
+const rows = table.getRows();
+console.log(`${rows.length} data rows`);
+```
+
+---
+
+### `getRow(index)`
+
+Returns a copy of the row at the given zero-based index.
+
+**Signature**
+
+```typescript
+getRow(index: number): JSONArray
+```
+
+<ParamField path="index" type="number" required>
+  Zero-based row index.
+</ParamField>
+
+<ResponseField name="returns" type="JSONArray">
+  A new `JSONArray` copy of the requested row. Mutations to the returned array do **not** affect the table.
+</ResponseField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `RangeError` | `index` is greater than or equal to `table.length()`. |
+
+**Example**
+
+```typescript
+const row = table.getRow(0);
+console.log(row[1]); // 'Alice'
+```
+
+---
+
+### `addRow(row)`
+
+Appends a single row to the table.
+
+**Signature**
+
+```typescript
+addRow(row: JSONArray): void
+```
+
+<ParamField path="row" type="JSONArray" required>
+  A `JSONArray` (or [`Row`](/api/nodejs/row)) containing cell values in the same order as the header.
+</ParamField>
+
+**Example**
+
+```typescript
+import { Row } from '@org-quicko/sheet';
+
+table.addRow(new Row([3, 'Carol', 750]));
+```
+
+---
+
+### `addRows(rows)`
+
+Appends multiple rows to the table in one call.
+
+**Signature**
+
+```typescript
+addRows(rows: JSONArray[]): void
+```
+
+<ParamField path="rows" type="JSONArray[]" required>
+  An array of `JSONArray` (or [`Row`](/api/nodejs/row)) instances to append, in order.
+</ParamField>
+
+**Example**
+
+```typescript
+import { Row } from '@org-quicko/sheet';
+
+table.addRows([
+  new Row([4, 'Dave',  120]),
+  new Row([5, 'Eve',   980]),
+]);
+```
+
+---
+
+### `popRow()`
+
+Removes the last row from the table.
+
+**Signature**
+
+```typescript
+popRow(): void
+```
+
+**Example**
+
+```typescript
+table.popRow(); // removes the most recently added row
+```
+
+---
+
+### `replaceRow(index, row)`
+
+Replaces the row at the given index with a new row.
+
+**Signature**
+
+```typescript
+replaceRow(index: number, row: JSONArray): void
+```
+
+<ParamField path="index" type="number" required>
+  Zero-based index of the row to replace.
+</ParamField>
+
+<ParamField path="row" type="JSONArray" required>
+  The new row data.
+</ParamField>
+
+**Example**
+
+```typescript
+table.replaceRow(0, new Row([1, 'Alice', 600]));
+```
+
+---
+
+### `removeRow(index)`
+
+Removes the row at the given index.
+
+**Signature**
+
+```typescript
+removeRow(index: number): void
+```
+
+<ParamField path="index" type="number" required>
+  Zero-based index of the row to remove.
+</ParamField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `RangeError` | `index` is greater than or equal to `table.length()`. |
+
+**Example**
+
+```typescript
+table.removeRow(1); // removes the second row
+```
+
+---
+
+## Column projection
+
+### `getColumns()`
+
+Returns a column-oriented view of the table. Each call constructs **fresh** [`Column`](/api/nodejs/column) instances — mutations to the returned columns do not affect the underlying table data.
+
+**Signature**
+
+```typescript
+getColumns(): Array<Column>
+```
+
+<ResponseField name="returns" type="Array<Column>">
+  An array of `Column` objects, one per header entry. Each `Column[0]` is the header string; `Column[1..n]` are the corresponding cell values from each row.
+  Returns an empty array if the header is empty.
+</ResponseField>
+
+**Example**
+
+```typescript
+const columns = table.getColumns();
+for (const col of columns) {
+  console.log('Header:', col.getColumnHeader());
+  console.log('Values:', col.slice(1)); // data cells
+}
+```
+
+---
+
+## Count
+
+### `length()`
+
+Returns the number of data rows in the table (excludes the header).
+
+**Signature**
+
+```typescript
+length(): number
+```
+
+<ResponseField name="returns" type="number">
+  The count of data rows.
+</ResponseField>
+
+**Example**
+
+```typescript
+console.log(`Table has ${table.length()} row(s)`);
+```
+
+---
+
+## Inherited BaseObject methods
+
+`Table` extends `Block`, which extends `BaseObject`.
+
+### `getName()`
+
+**Signature**
+
+```typescript
+getName(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"table"` for `Table` instances.
+</ResponseField>
+
+---
+
+### `getEntity()`
+
+**Signature**
+
+```typescript
+getEntity(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"table"` for `Table` instances.
+</ResponseField>
+
+---
+
+### `getMetadata()`
+
+Returns the metadata object attached to this node. Lazily initialised to an empty `JSONObject` on first access.
+
+**Signature**
+
+```typescript
+getMetadata(): JSONObject
+```
+
+<ResponseField name="returns" type="JSONObject">
+  A `JSONObject` of user-defined metadata key-value pairs.
+</ResponseField>
+
+---
+
+### `setMetadata(value)`
+
+Replaces the metadata object for this node.
+
+**Signature**
+
+```typescript
+setMetadata(value: JSONObject): void
+```
+
+<ParamField path="value" type="JSONObject" required>
+  A `JSONObject` instance that will become the new metadata payload.
+</ParamField>
+
+**Example**
+
+```typescript
+import { JSONObject } from '@org-quicko/core';
+
+const meta = new JSONObject();
+meta.set('description', 'Monthly sales data');
+table.setMetadata(meta);
+```

@@ -1,0 +1,355 @@
+---
+title: "Workbook class — Node.js API reference"
+sidebarTitle: "Workbook"
+description: "Full API reference for the Workbook class in @org-quicko/sheet: constructors, sheet accessors, XLSX conversion, and inherited BaseObject methods."
+---
+
+## Overview
+
+`Workbook` is the top-level container in the Sheet JSON object model. It holds an ordered collection of [`Sheet`](/api/nodejs/sheet) objects and provides methods to add, retrieve, replace, and remove sheets by index or name. All name comparisons are **case-insensitive**.
+
+`Workbook` extends [`BaseObject`](#inherited-baseobject-methods), which provides entity metadata accessors common to all Sheet JSON nodes.
+
+```typescript
+import { Workbook, Sheet } from '@org-quicko/sheet';
+
+const workbook = new Workbook();
+const sheet = new Sheet();
+workbook.addSheet(sheet);
+
+console.log(workbook.length()); // 1
+```
+
+---
+
+## Constructor
+
+### `new Workbook()`
+
+Creates a new, empty `Workbook` instance with an empty `sheets` array.
+
+```typescript
+const workbook = new Workbook();
+```
+
+---
+
+## Sheet accessors
+
+### `getSheets()`
+
+Returns the full array of sheets in the workbook.
+
+**Signature**
+
+```typescript
+getSheets(): Array<Sheet>
+```
+
+<ResponseField name="returns" type="Array<Sheet>">
+  All sheets currently in the workbook. Returns an empty array when no sheets have been added.
+</ResponseField>
+
+**Example**
+
+```typescript
+const sheets: Sheet[] = workbook.getSheets();
+sheets.forEach((sheet) => console.log(sheet.getName()));
+```
+
+---
+
+### `getSheet(index)` / `getSheet(name)`
+
+Overloaded method that retrieves a single sheet either by its zero-based index or by its name.
+
+**Signatures**
+
+```typescript
+getSheet(index: number): Sheet
+getSheet(name: string): Sheet | null
+```
+
+<ParamField path="index" type="number">
+  Zero-based position of the sheet in the workbook.
+</ParamField>
+
+<ParamField path="name" type="string">
+  Name of the sheet to look up. Comparison is case-insensitive.
+</ParamField>
+
+<ResponseField name="returns (index overload)" type="Sheet">
+  The `Sheet` at the given index.
+</ResponseField>
+
+<ResponseField name="returns (name overload)" type="Sheet | null">
+  The matching `Sheet`, or `null` if no sheet with that name exists.
+</ResponseField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `RangeError` | `index` is greater than or equal to the number of sheets. |
+| `Error` | The argument is neither a `number` nor a `string`. |
+
+**Example**
+
+```typescript
+// By index
+const first: Sheet = workbook.getSheet(0);
+
+// By name (case-insensitive)
+const summary: Sheet | null = workbook.getSheet('Summary');
+if (summary) {
+  console.log(summary.getName());
+}
+```
+
+---
+
+### `addSheet(sheet)`
+
+Appends a sheet to the end of the workbook's sheet list.
+
+**Signature**
+
+```typescript
+addSheet(sheet: Sheet): void
+```
+
+<ParamField path="sheet" type="Sheet" required>
+  The `Sheet` instance to append.
+</ParamField>
+
+**Example**
+
+```typescript
+const sheet = new Sheet();
+workbook.addSheet(sheet);
+```
+
+---
+
+### `replaceSheet(sheet)`
+
+Replaces the first sheet whose name matches `sheet.getName()` (case-insensitive) with the provided sheet. If no matching sheet is found, the call is a no-op.
+
+**Signature**
+
+```typescript
+replaceSheet(sheet: Sheet): void
+```
+
+<ParamField path="sheet" type="Sheet" required>
+  The replacement `Sheet` instance. Its `name` is used to locate the existing sheet.
+</ParamField>
+
+**Example**
+
+```typescript
+const updated = new Sheet(); // name resolves to 'sheet'
+workbook.replaceSheet(updated);
+```
+
+---
+
+### `removeSheet(name)`
+
+Removes the first sheet with a matching name (case-insensitive).
+
+**Signature**
+
+```typescript
+removeSheet(name: string): void
+```
+
+<ParamField path="name" type="string" required>
+  The name of the sheet to remove.
+</ParamField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `RangeError` | No sheet with the given name exists in the workbook. |
+
+**Example**
+
+```typescript
+workbook.removeSheet('Summary');
+```
+
+---
+
+### `length()`
+
+Returns the number of sheets currently in the workbook.
+
+**Signature**
+
+```typescript
+length(): number
+```
+
+<ResponseField name="returns" type="number">
+  The count of sheets in the workbook.
+</ResponseField>
+
+**Example**
+
+```typescript
+console.log(`Workbook has ${workbook.length()} sheet(s)`);
+```
+
+---
+
+## XLSX conversion
+
+The static XLSX methods are convenience wrappers around [`WorkbookConverter`](/api/nodejs/workbook-converter).
+
+### `Workbook.fromXlsx(buffer)`
+
+Parses an XLSX file buffer and returns a typed `Workbook` instance. Blocks within each sheet are automatically classified as [`Table`](/api/nodejs/table) or [`List`](/api/nodejs/list) based on the block name suffix.
+
+**Signature**
+
+```typescript
+static fromXlsx(buffer: Buffer): Workbook
+```
+
+<ParamField path="buffer" type="Buffer" required>
+  The raw binary content of an `.xlsx` file, for example from `fs.readFileSync`.
+</ParamField>
+
+<ResponseField name="returns" type="Workbook">
+  A fully hydrated `Workbook` instance with nested `Sheet`, `Table`, and `List` objects.
+</ResponseField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `ConverterException` | The buffer is not a valid XLSX file or the internal structure cannot be parsed. |
+
+**Example**
+
+```typescript
+import * as fs from 'fs';
+import { Workbook } from '@org-quicko/sheet';
+
+const buffer = fs.readFileSync('report.xlsx');
+const workbook = Workbook.fromXlsx(buffer);
+
+console.log(workbook.length()); // number of sheets parsed
+```
+
+---
+
+### `Workbook.toXlsx(workbook)`
+
+Converts a `Workbook` instance into an `XLSX.WorkBook` object that can be written to disk using the `xlsx` library.
+
+**Signature**
+
+```typescript
+static toXlsx(workbook: Workbook): XLSX.WorkBook
+```
+
+<ParamField path="workbook" type="Workbook" required>
+  The `Workbook` instance to serialize.
+</ParamField>
+
+<ResponseField name="returns" type="XLSX.WorkBook">
+  An `xlsx` library workbook object ready to write with `XLSX.writeFile` or `XLSX.write`.
+</ResponseField>
+
+**Example**
+
+```typescript
+import * as XLSX from 'xlsx';
+import { Workbook } from '@org-quicko/sheet';
+
+const xlsxWorkbook = Workbook.toXlsx(workbook);
+XLSX.writeFile(xlsxWorkbook, 'output.xlsx');
+```
+
+---
+
+## Inherited BaseObject methods
+
+`Workbook` extends `BaseObject`, which stores entity-type and metadata information that is serialized into the Sheet JSON format.
+
+### `getName()`
+
+Returns the entity name string registered via `@Reflect.metadata('name', ...)`.
+
+**Signature**
+
+```typescript
+getName(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"workbook"` for `Workbook` instances.
+</ResponseField>
+
+---
+
+### `getEntity()`
+
+Returns the `@entity` discriminator string used in JSON serialization.
+
+**Signature**
+
+```typescript
+getEntity(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"workbook"` for `Workbook` instances.
+</ResponseField>
+
+---
+
+### `getMetadata()`
+
+Returns the metadata object attached to this node. Lazily initialised to an empty `JSONObject` on first access.
+
+**Signature**
+
+```typescript
+getMetadata(): JSONObject
+```
+
+<ResponseField name="returns" type="JSONObject">
+  A `JSONObject` containing arbitrary user-defined metadata key-value pairs.
+</ResponseField>
+
+---
+
+### `setMetadata(value)`
+
+Replaces the metadata object for this node.
+
+**Signature**
+
+```typescript
+setMetadata(value: JSONObject): void
+```
+
+<ParamField path="value" type="JSONObject" required>
+  A `JSONObject` instance that will become the new metadata payload.
+</ParamField>
+
+**Example**
+
+```typescript
+import { JSONObject } from '@org-quicko/core';
+
+const meta = new JSONObject();
+meta.set('author', 'Alice');
+workbook.setMetadata(meta);
+
+console.log(workbook.getMetadata().get('author')); // 'Alice'
+```

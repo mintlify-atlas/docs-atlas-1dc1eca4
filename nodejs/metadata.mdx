@@ -1,0 +1,141 @@
+---
+title: "Attaching metadata to workbooks, sheets, and blocks"
+sidebarTitle: "Metadata"
+description: "Use the metadata field on any Workbook, Sheet, Table, or List to store custom key-value annotations that round-trip through JSON serialization."
+---
+
+Every node in the Sheet JSON hierarchy — `Workbook`, `Sheet`, `Table`, and `List` — inherits from `BaseObject`, which exposes a `metadata` bag. This field is a `JSONObject` that you can use to attach arbitrary key-value annotations to any level of your data tree without modifying the data itself. Metadata is serialized as part of the JSON representation, making it a lightweight carrier for report timestamps, schema version tags, audit trail fields, and other housekeeping information.
+
+## Reading and Writing Metadata
+
+Retrieve the `JSONObject` with `getMetadata()` — it is auto-initialized to an empty `JSONObject` on first access — then call `.set(key, value)` on it to add or update an entry. To replace the entire metadata object at once, pass a new `JSONObject` to `setMetadata(value)`:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, List } from '@org-quicko/sheet';
+import { JSONObject } from '@org-quicko/core';
+
+// Set individual keys on the auto-initialized metadata object
+const workbook = new Workbook();
+workbook.getMetadata().set('generated_at', '2024-11-15T08:00:00Z');
+workbook.getMetadata().set('generated_by', 'reporting-service');
+workbook.getMetadata().set('version',       2);
+
+// Replace the entire metadata object
+const replacement = new JSONObject();
+replacement.set('environment',   'production');
+replacement.set('schema_version', '1.4.0');
+workbook.setMetadata(replacement);
+```
+
+Metadata can be set independently on any level of the hierarchy:
+
+```typescript
+const sheet = new Sheet();
+sheet.getMetadata().set('sheet_owner', 'finance-team');
+
+const list = new List();
+list.getMetadata().set('last_modified', '2024-11-14T17:30:00Z');
+```
+
+Read an individual entry back with `.get(key)` on the `JSONObject` returned by `getMetadata()`:
+
+```typescript
+const generatedAt = workbook.getMetadata().get('generated_at');
+console.log(generatedAt); // '2024-11-15T08:00:00Z'
+
+const owner = sheet.getMetadata().get('sheet_owner');
+console.log(owner); // 'finance-team'
+
+// Key not set — returns undefined
+console.log(workbook.getMetadata().get('nonExistent')); // undefined
+```
+
+## Metadata in Serialized JSON
+
+When a Sheet JSON object is serialized — for example via `JSON.stringify` — the `metadata` field appears as a `"metadata"` property at the same level as `@entity`, `name`, and any block or sheet arrays. This behavior is enforced by the `@Expose({ name: 'metadata' })` decorator on `BaseObject`:
+
+```json
+{
+  "@entity": "workbook",
+  "name": "workbook",
+  "metadata": {
+    "generated_at": "2024-11-15T08:00:00Z",
+    "generated_by": "reporting-service",
+    "version": 2
+  },
+  "sheets": [
+    {
+      "@entity": "sheet",
+      "name": "sheet",
+      "metadata": {
+        "sheet_owner": "finance-team"
+      },
+      "blocks": []
+    }
+  ]
+}
+```
+
+<Note>
+  The metadata bag accepts any `JSONObject` content — there is no schema validation applied to the keys or values you store. You are free to add as many entries as needed. No enforcement prevents you from storing nested objects, arrays, or any other `JSONValue` inside metadata.
+</Note>
+
+## Use Cases
+
+Metadata is a lightweight way to carry contextual information alongside your spreadsheet content. Common patterns include:
+
+- **Report run ID** — attach a unique identifier to each generated workbook for traceability (`report_id: 'RPT-2024-001'`).
+- **Generation timestamp** — record when a workbook or sheet was produced (`generated_at: '2024-11-15T08:00:00Z'`).
+- **Audit trail** — store the identity of the process or user that created or last modified a block (`created_by: 'etl-pipeline'`).
+- **Schema version** — track the data schema version on individual sheets or blocks (`schema_version: '2.1'`).
+- **Display hints** — attach rendering instructions for downstream consumers without polluting the data rows (`currency: 'USD'`, `locale: 'en-US'`).
+
+## Practical Example
+
+The following example attaches `generated_at` and `report_id` to a workbook, serializes it to JSON, and reads the values back:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table } from '@org-quicko/sheet';
+import { JSONArray, JSONObject } from '@org-quicko/core';
+import { instanceToPlain } from 'class-transformer';
+
+// Build a workbook and attach metadata
+const workbook = new Workbook();
+workbook.getMetadata().set('generated_at', new Date().toISOString());
+workbook.getMetadata().set('report_id',    'RPT-2024-Q4-001');
+
+const sheet = new Sheet();
+sheet.getMetadata().set('sheet_owner', 'finance-team');
+
+const table = new Table();
+table.setHeader(new JSONArray(['item', 'qty', 'unit_price']));
+table.addRow(new JSONArray(['Widget A', 100, 14.99]));
+
+sheet.addBlock(table);
+workbook.addSheet(sheet);
+
+// Serialize to a plain JSON object
+const plain = instanceToPlain(workbook, { excludeExtraneousValues: true });
+const json  = JSON.stringify(plain, null, 2);
+console.log(json);
+/*
+{
+  "@entity": "workbook",
+  "name": "workbook",
+  "metadata": {
+    "generated_at": "2024-11-15T08:00:00.000Z",
+    "report_id": "RPT-2024-Q4-001"
+  },
+  "sheets": [ ... ]
+}
+*/
+
+// Read metadata back from the in-memory object
+console.log(workbook.getMetadata().get('report_id'));    // 'RPT-2024-Q4-001'
+console.log(workbook.getMetadata().get('generated_at')); // ISO timestamp string
+console.log(sheet.getMetadata().get('sheet_owner'));     // 'finance-team'
+```

@@ -1,0 +1,298 @@
+---
+title: "List class — Node.js API reference"
+sidebarTitle: "List"
+description: "Full API reference for the List class in @org-quicko/sheet: item accessors, case-insensitive key lookup, and mutation methods."
+---
+
+## Overview
+
+`List` is a block type that represents a collection of key-value pairs, where each pair is an [`Item`](/api/nodejs/item). It is one of the two concrete block types that can be added to a [`Sheet`](/api/nodejs/sheet); the other is [`Table`](/api/nodejs/table).
+
+All key lookups are **case-insensitive**.
+
+`List` extends `Block`, which extends [`BaseObject`](#inherited-baseobject-methods).
+
+### XLSX naming rule
+
+When converting to and from XLSX, the block-type is determined by whether the first cell of a block (the block name) ends with the string `"list"` (case-insensitive). Therefore, a `List`'s name **must** end with `"list"` — for example `"customer_list"` or `"ConfigList"` — to survive a round-trip through XLSX serialization.
+
+```typescript
+import { List, Item, Sheet } from '@org-quicko/sheet';
+
+const list = new List(); // name → 'list'
+
+list.addItem(new Item('firstName', 'Alice'));
+list.addItem(new Item('lastName', 'Smith'));
+list.addItem(new Item('age', 30));
+
+const sheet = new Sheet();
+sheet.addBlock(list);
+```
+
+---
+
+## Constructor
+
+### `new List()`
+
+Creates a new, empty `List` instance with an empty `items` array.
+
+```typescript
+const list = new List();
+```
+
+---
+
+## Item accessors
+
+### `getItems()`
+
+Returns all items in the list. Lazily initialises the internal array if it is `null`.
+
+**Signature**
+
+```typescript
+getItems(): Array<Item>
+```
+
+<ResponseField name="returns" type="Array<Item>">
+  The full array of `Item` objects in insertion order.
+</ResponseField>
+
+**Example**
+
+```typescript
+const items = list.getItems();
+items.forEach((item) => {
+  console.log(`${item.getKey()}: ${item.getValue()}`);
+});
+```
+
+---
+
+### `getItem(key)`
+
+Retrieves the first item whose key matches `key` (case-insensitive).
+
+**Signature**
+
+```typescript
+getItem(key: string): Item | null
+```
+
+<ParamField path="key" type="string" required>
+  The key to search for. Comparison is case-insensitive.
+</ParamField>
+
+<ResponseField name="returns" type="Item | null">
+  The first matching `Item`, or `null` if none is found.
+</ResponseField>
+
+**Example**
+
+```typescript
+const item = list.getItem('firstName');
+if (item) {
+  console.log(item.getStringValue()); // 'Alice'
+}
+```
+
+---
+
+## Mutation methods
+
+### `addItem(item)`
+
+Appends a single item to the list.
+
+**Signature**
+
+```typescript
+addItem(item: Item): void
+```
+
+<ParamField path="item" type="Item" required>
+  The `Item` to append.
+</ParamField>
+
+**Example**
+
+```typescript
+list.addItem(new Item('country', 'US'));
+```
+
+---
+
+### `addItems(items)`
+
+Appends multiple items to the list in one call.
+
+**Signature**
+
+```typescript
+addItems(items: Item[]): void
+```
+
+<ParamField path="items" type="Item[]" required>
+  An array of `Item` instances to append, in order.
+</ParamField>
+
+**Example**
+
+```typescript
+list.addItems([
+  new Item('city',    'New York'),
+  new Item('zipCode', '10001'),
+]);
+```
+
+---
+
+### `replaceItem(item)`
+
+Replaces the first item whose key **exactly** matches `item.getKey()`. If no matching item is found, the call is a no-op.
+
+**Signature**
+
+```typescript
+replaceItem(item: Item): void
+```
+
+<ParamField path="item" type="Item" required>
+  The replacement `Item`. Its key is used to locate the existing item (exact match).
+</ParamField>
+
+**Example**
+
+```typescript
+list.replaceItem(new Item('age', 31)); // updates age from 30 → 31
+```
+
+---
+
+### `removeItem(index)` / `removeItem(key)`
+
+Overloaded method that removes an item either by its zero-based index or by its key.
+
+**Signatures**
+
+```typescript
+removeItem(index: number): void
+removeItem(key: string): void
+```
+
+<ParamField path="index" type="number">
+  Zero-based index of the item to remove.
+</ParamField>
+
+<ParamField path="key" type="string">
+  The key of the item to remove. All items whose key matches (case-insensitive) are removed.
+</ParamField>
+
+**Example**
+
+```typescript
+// Remove by index
+list.removeItem(0);
+
+// Remove by key (case-insensitive)
+list.removeItem('age');
+```
+
+---
+
+## Count
+
+### `length()`
+
+Returns the number of items currently in the list.
+
+**Signature**
+
+```typescript
+length(): number
+```
+
+<ResponseField name="returns" type="number">
+  The count of items in the list.
+</ResponseField>
+
+**Example**
+
+```typescript
+console.log(`List has ${list.length()} item(s)`);
+```
+
+---
+
+## Inherited BaseObject methods
+
+`List` extends `Block`, which extends `BaseObject`.
+
+### `getName()`
+
+**Signature**
+
+```typescript
+getName(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"list"` for `List` instances.
+</ResponseField>
+
+---
+
+### `getEntity()`
+
+**Signature**
+
+```typescript
+getEntity(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"list"` for `List` instances.
+</ResponseField>
+
+---
+
+### `getMetadata()`
+
+Returns the metadata object attached to this node. Lazily initialised to an empty `JSONObject` on first access.
+
+**Signature**
+
+```typescript
+getMetadata(): JSONObject
+```
+
+<ResponseField name="returns" type="JSONObject">
+  A `JSONObject` of user-defined metadata key-value pairs.
+</ResponseField>
+
+---
+
+### `setMetadata(value)`
+
+Replaces the metadata object for this node.
+
+**Signature**
+
+```typescript
+setMetadata(value: JSONObject): void
+```
+
+<ParamField path="value" type="JSONObject" required>
+  A `JSONObject` instance that will become the new metadata payload.
+</ParamField>
+
+**Example**
+
+```typescript
+import { JSONObject } from '@org-quicko/core';
+
+const meta = new JSONObject();
+meta.set('source', 'onboarding-form');
+list.setMetadata(meta);
+```

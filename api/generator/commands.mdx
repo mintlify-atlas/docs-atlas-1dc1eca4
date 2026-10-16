@@ -1,0 +1,305 @@
+---
+title: "Sheet JSON generator CLI commands reference"
+sidebarTitle: "Commands"
+description: "Complete reference for all @org-quicko/sheet-generator CLI commands: excel-to-schema, json-to-schema, and schema-to-objects with all flags and usage examples."
+---
+
+## Overview
+
+The `@org-quicko/sheet-generator` package ships a CLI with three commands for converting between Excel files, Sheet JSON workbooks, JSON Schemas, and generated TypeScript or Java classes. A Maven plugin exposes equivalent goals for Java projects.
+
+Install the CLI globally:
+
+```bash
+npm install -g @org-quicko/sheet-generator
+```
+
+---
+
+## CLI commands
+
+### `excel-to-schema` (alias: `e2s`)
+
+Generates a JSON Schema file from a `.xlsx` or `.xls` Excel workbook.
+
+```
+excel-to-schema --input <path> --output <path>
+```
+
+**Alias:** `e2s`
+
+**Description:** Reads an Excel file (or all Excel files in a directory recursively) and produces a `.schema.json` file that describes the Sheet JSON structure inferred from the workbook's sheets and blocks.
+
+#### Flags
+
+| Flag | Short | Required | Description |
+|---|---|---|---|
+| `--input <path>` | `-i` | ✅ | Path to a single `.xlsx` / `.xls` file, or a directory to process recursively |
+| `--output <path>` | `-o` | ✅ | Output directory where generated schema files are written |
+
+#### Input behaviour
+
+- **Single file** — processes that file directly.
+- **Directory** — recursively walks the directory tree, processing every `.xlsx` and `.xls` file found. Non-Excel files are skipped (with a logged warning).
+
+#### Output
+
+For each processed file, a schema is written to the output directory as:
+
+```
+<output>/<basename>.schema.json
+```
+
+When processing a directory, the relative sub-directory structure is preserved inside the output directory.
+
+#### Examples
+
+```bash
+# Single file
+excel-to-schema --input ./data/report.xlsx --output ./schemas/
+
+# Using the alias
+e2s -i ./data/report.xlsx -o ./schemas/
+
+# Directory — processes all .xlsx/.xls files recursively
+excel-to-schema --input ./data/ --output ./schemas/
+```
+
+---
+
+### `json-to-schema` (alias: `j2s`)
+
+Generates a JSON Schema file from a Sheet JSON workbook `.json` file.
+
+```
+json-to-schema --input <path> --output <path>
+```
+
+**Alias:** `j2s`
+
+**Description:** Reads a Sheet JSON workbook JSON file (or all `.json` files in a directory recursively) and produces a `.schema.json` file.
+
+#### Flags
+
+| Flag | Short | Required | Description |
+|---|---|---|---|
+| `--input <path>` | `-i` | ✅ | Path to a single `.json` workbook file, or a directory to process recursively |
+| `--output <path>` | `-o` | ✅ | Output directory where generated schema files are written |
+
+#### Input behaviour
+
+- **Single file** — must be a `.json` file; any other extension is skipped with an error message.
+- **Directory** — recursively walks the directory tree, processing every `.json` file found.
+
+#### Output
+
+For each processed file, a schema is written to the output directory as:
+
+```
+<output>/<basename>.schema.json
+```
+
+#### Examples
+
+```bash
+# Single file
+json-to-schema --input ./workbook.json --output ./schemas/
+
+# Using the alias
+j2s -i ./workbook.json -o ./schemas/
+
+# Directory
+json-to-schema --input ./workbooks/ --output ./schemas/
+```
+
+---
+
+### `schema-to-objects` (alias: `s2o`)
+
+Generates TypeScript classes from a Sheet JSON Schema file.
+
+```
+schema-to-objects --input <path> --output <path>
+```
+
+**Alias:** `s2o`
+
+**Description:** Reads a `.schema.json` file (or all `.json` files in a directory recursively) and generates strongly-typed TypeScript classes that mirror the workbook, sheet, table, and list structure defined in the schema.
+
+#### Flags
+
+| Flag | Short | Required | Description |
+|---|---|---|---|
+| `--input <path>` | `-i` | ✅ | Path to a single `.json` schema file, or a directory to process recursively |
+| `--output <path>` | `-o` | ✅ | Root output directory for the generated TypeScript source tree |
+
+#### Input behaviour
+
+- **Single file** — must be a `.json` file.
+- **Directory** — recursively walks the directory tree, processing every `.json` file found.
+
+#### Output structure
+
+For each processed schema file, TypeScript source files are generated under a subdirectory tree inside the output path:
+
+```
+<output>/
+  workbook/       # Workbook class
+  sheets/         # One class per sheet
+  tables/         # One class per table block
+  lists/          # One class per list block
+  mixins/         # Shared mixin interfaces
+  index.ts        # Barrel export of all generated classes
+```
+
+#### Examples
+
+```bash
+# Single schema file
+schema-to-objects --input ./schemas/workbook.schema.json --output ./src/generated/
+
+# Using the alias
+s2o -i ./schemas/workbook.schema.json -o ./src/generated/
+
+# All schemas in a directory
+schema-to-objects --input ./schemas/ --output ./src/generated/
+```
+
+---
+
+## End-to-end workflow
+
+```bash
+# 1. Start from an Excel file — generate a schema
+excel-to-schema -i ./data/report.xlsx -o ./schemas/
+
+# 2. Generate TypeScript classes from the schema
+schema-to-objects -i ./schemas/report.schema.json -o ./src/generated/
+
+# Alternatively, start from a Sheet JSON file
+json-to-schema -i ./workbook.json -o ./schemas/
+schema-to-objects -i ./schemas/workbook.schema.json -o ./src/generated/
+```
+
+---
+
+## Java Maven plugin goals
+
+The `org-quicko-sheet-generator` Maven plugin exposes equivalent goals for Java projects. Add the plugin to your `pom.xml` and configure the desired goal in the `<executions>` block.
+
+### `generator:schema-to-pojo`
+
+Generates Java POJO classes from a Sheet JSON Schema file during the `generate-sources` lifecycle phase.
+
+**Default lifecycle phase:** `generate-sources`
+
+**Goal name:** `schema-to-pojo`
+
+#### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `sourcePath` | `String` | ✅ | — | Path to the source `.schema.json` file |
+| `targetPackage` | `String` | ✅ | — | Java package name for the generated classes (e.g. `com.example.generated`) |
+| `outputDirectory` | `String` | ❌ | `${project.build.directory}/generated-sources/main/java` | Root directory for the generated Java source files |
+
+The generated sources are automatically added to the project's compile source roots, so they are compiled without any further configuration.
+
+#### POM example
+
+```xml
+<plugin>
+  <groupId>in.org.quicko</groupId>
+  <artifactId>org-quicko-sheet-generator</artifactId>
+  <version>${sheet-json.version}</version>
+  <executions>
+    <execution>
+      <id>generate-sheet-pojos</id>
+      <goals>
+        <goal>schema-to-pojo</goal>
+      </goals>
+      <configuration>
+        <sourcePath>${project.basedir}/src/main/resources/schema/workbook.schema.json</sourcePath>
+        <targetPackage>com.example.generated.sheet</targetPackage>
+        <!-- outputDirectory is optional; defaults to target/generated-sources/main/java -->
+        <outputDirectory>${project.build.directory}/generated-sources/main/java</outputDirectory>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+```
+
+### `generator:excel-to-schema`
+
+Generates a JSON Schema from an Excel file during the `generate-sources` lifecycle phase.
+
+**Default lifecycle phase:** `generate-sources`
+
+**Goal name:** `excel-to-schema`
+
+#### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `sourcePath` | `String` | ✅ | — | Path to the source `.xlsx` or `.xls` file |
+| `outputDirectory` | `String` | ❌ | `${project.build.directory}/generated-sources/main/resources/schema` | Directory where the generated `.schema.json` is written |
+| `workbookName` | `String` | ❌ | — | Optional name override for the workbook in the generated schema |
+
+#### POM example
+
+```xml
+<plugin>
+  <groupId>in.org.quicko</groupId>
+  <artifactId>org-quicko-sheet-generator</artifactId>
+  <version>${sheet-json.version}</version>
+  <executions>
+    <execution>
+      <id>excel-to-schema</id>
+      <goals>
+        <goal>excel-to-schema</goal>
+      </goals>
+      <configuration>
+        <sourcePath>${project.basedir}/src/main/resources/data/report.xlsx</sourcePath>
+        <outputDirectory>${project.build.directory}/generated-sources/main/resources/schema</outputDirectory>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+```
+
+### `generator:json-to-schema`
+
+Generates a JSON Schema from a Sheet JSON workbook JSON file during the `generate-sources` lifecycle phase.
+
+**Default lifecycle phase:** `generate-sources`
+
+**Goal name:** `json-to-schema`
+
+#### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `sourcePath` | `String` | ✅ | — | Path to the source `.json` Sheet JSON workbook file |
+| `outputDirectory` | `String` | ❌ | `${project.build.directory}/generated-sources/main/resources/schema` | Directory where the generated `.schema.json` is written |
+
+#### POM example
+
+```xml
+<plugin>
+  <groupId>in.org.quicko</groupId>
+  <artifactId>org-quicko-sheet-generator</artifactId>
+  <version>${sheet-json.version}</version>
+  <executions>
+    <execution>
+      <id>json-to-schema</id>
+      <goals>
+        <goal>json-to-schema</goal>
+      </goals>
+      <configuration>
+        <sourcePath>${project.basedir}/src/main/resources/workbook.json</sourcePath>
+        <outputDirectory>${project.build.directory}/generated-sources/main/resources/schema</outputDirectory>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+```

@@ -1,0 +1,139 @@
+---
+title: "SheetJsonEntityType enum — Node.js API reference"
+sidebarTitle: "Types"
+description: "API reference for the SheetJsonEntityType enum exported by @org-quicko/sheet — entity discriminator strings used in JSON serialization."
+---
+
+## Overview
+
+`SheetJsonEntityType` is a string enum that defines every entity discriminator value used in the Sheet JSON format. Each node in the object model serializes an `@entity` property whose value matches one of these constants. The discriminator is consumed by `class-transformer` during deserialization to determine which concrete class to instantiate.
+
+```typescript
+import { SheetJsonEntityType } from '@org-quicko/sheet';
+
+console.log(SheetJsonEntityType.TABLE);    // 'table'
+console.log(SheetJsonEntityType.WORKBOOK); // 'workbook'
+```
+
+---
+
+## Enum values
+
+```typescript
+export enum SheetJsonEntityType {
+  WORKBOOK             = 'workbook',
+  SHEET                = 'sheet',
+  LIST                 = 'list',
+  TABLE                = 'table',
+  ISSUE_ROW            = 'table.issue_row',
+  ISSUE_TABLE          = 'table.issue_table',
+  ISSUE_ROW_FOR_LIST   = 'list.issue_row',
+  ISSUE_TABLE_FOR_LIST = 'list.issue_table',
+}
+```
+
+### Core entity types
+
+<ResponseField name="WORKBOOK" type='"workbook"'>
+  Discriminator for a [`Workbook`](/api/nodejs/workbook) node. Appears as `@entity: "workbook"` in serialized JSON.
+</ResponseField>
+
+<ResponseField name="SHEET" type='"sheet"'>
+  Discriminator for a [`Sheet`](/api/nodejs/sheet) node. Appears as `@entity: "sheet"` in serialized JSON.
+</ResponseField>
+
+<ResponseField name="TABLE" type='"table"'>
+  Discriminator for a [`Table`](/api/nodejs/table) block. Appears as `@entity: "table"` in serialized JSON.
+</ResponseField>
+
+<ResponseField name="LIST" type='"list"'>
+  Discriminator for a [`List`](/api/nodejs/list) block. Appears as `@entity: "list"` in serialized JSON.
+</ResponseField>
+
+### Validation issue types
+
+The following four values are reserved for validation error nodes. They are **not** instantiated during normal read/write operations; they appear only when a validation layer annotates a workbook with structured error information.
+
+<ResponseField name="ISSUE_ROW" type='"table.issue_row"'>
+  Marks a Table row that contains a validation error.
+</ResponseField>
+
+<ResponseField name="ISSUE_TABLE" type='"table.issue_table"'>
+  Marks an entire Table block that is flagged with a validation issue.
+</ResponseField>
+
+<ResponseField name="ISSUE_ROW_FOR_LIST" type='"list.issue_row"'>
+  Marks a List item row that contains a validation error.
+</ResponseField>
+
+<ResponseField name="ISSUE_TABLE_FOR_LIST" type='"list.issue_table"'>
+  Marks an entire List block that is flagged with a validation issue.
+</ResponseField>
+
+---
+
+## Sheet discriminator configuration
+
+`SheetJsonEntityType` is used directly in the `@Type` discriminator configuration on the `Sheet.blocks` property to map each `@entity` value to its concrete class:
+
+```typescript
+import { Type } from 'class-transformer';
+import { SheetJsonEntityType } from '@org-quicko/sheet';
+import { Block } from './Block';
+import { Table } from './Table';
+import { List  } from './List';
+
+@Type(() => Block, {
+  keepDiscriminatorProperty: true,
+  discriminator: {
+    property: '@entity',
+    subTypes: [
+      { value: Table, name: SheetJsonEntityType.TABLE }, // 'table'
+      { value: List,  name: SheetJsonEntityType.LIST  }, // 'list'
+    ],
+  },
+})
+blocks?: Array<Block>;
+```
+
+When `plainToInstance` encounters a block JSON object with `@entity: "table"`, it instantiates a `Table`; `@entity: "list"` produces a `List`.
+
+---
+
+## Serialized JSON example
+
+A minimal Sheet JSON document with one `Sheet` containing a `Table` and a `List` looks like this:
+
+```json
+{
+  "@entity": "workbook",
+  "name": "workbook",
+  "sheets": [
+    {
+      "@entity": "sheet",
+      "name": "sheet",
+      "blocks": [
+        {
+          "@entity": "table",
+          "name": "sales",
+          "header": ["month", "revenue"],
+          "rows": [
+            ["Jan", 10000],
+            ["Feb", 12000]
+          ]
+        },
+        {
+          "@entity": "list",
+          "name": "config_list",
+          "items": [
+            { "region": "US" },
+            { "currency": "USD" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Each `@entity` value corresponds to a `SheetJsonEntityType` constant, ensuring deterministic deserialization.

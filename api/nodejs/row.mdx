@@ -1,0 +1,107 @@
+---
+title: "Row class — Node.js API reference"
+sidebarTitle: "Row"
+description: "API reference for the Row class in @org-quicko/sheet: a typed JSONArray subclass representing a single table row."
+---
+
+## Overview
+
+`Row` is a thin, typed subclass of `JSONArray` (from `@org-quicko/core`) that represents a single data row in a [`Table`](/api/nodejs/table). Using `Row` instead of a plain `JSONArray` makes construction more explicit and retains Reflect metadata for serialization.
+
+Because `Row` is a `JSONArray` subclass, all standard `Array` methods (`push`, `pop`, `map`, `slice`, etc.) are available on a `Row` instance.
+
+> **Note:** [`Table.getRow(index)`](/api/nodejs/table#getrow-index) returns a plain `JSONArray` (a copy of the stored row), **not** a `Row` instance. `Row` is primarily a construction helper you pass to `addRow` or `addRows`.
+
+```typescript
+import { JSONArray } from '@org-quicko/core';
+import { Row, Table } from '@org-quicko/sheet';
+
+const table = new Table();
+
+const header = new JSONArray();
+header.push('id', 'product', 'quantity');
+table.setHeader(header);
+
+table.addRow(new Row([1, 'Widget A', 10]));
+table.addRow(new Row([2, 'Widget B', 5]));
+
+console.log(table.length()); // 2
+```
+
+---
+
+## Constructor
+
+### `new Row(row)`
+
+Creates a new `Row` and populates it with the provided values.
+
+**Signature**
+
+```typescript
+constructor(row: Array<JSONValue>)
+```
+
+<ParamField path="row" type="Array<JSONValue>" required>
+  An array of cell values in the same column order as the parent `Table`'s header. `JSONValue` is `string | number | boolean | null | JSONObject | JSONArray` (from `@org-quicko/core`).
+</ParamField>
+
+**Example**
+
+```typescript
+import { Row } from '@org-quicko/sheet';
+
+// Strongly typed construction
+const row = new Row([42, 'Alice', true, null]);
+
+console.log(row[0]); // 42
+console.log(row[1]); // 'Alice'
+console.log(row.length); // 4
+```
+
+---
+
+## Usage with Table
+
+`Table.addRow` and `Table.addRows` both accept a `JSONArray`. Because `Row extends JSONArray`, you can pass a `Row` directly.
+
+```typescript
+import { JSONArray } from '@org-quicko/core';
+import { Row, Table } from '@org-quicko/sheet';
+
+const table = new Table();
+
+const header = new JSONArray();
+header.push('month', 'revenue_epoch', 'units');
+table.setHeader(header);
+
+// Using Row (preferred — explicit typing)
+table.addRow(new Row(['2024-01', 1704067200000, 120]));
+
+// Using a plain JSONArray (also valid)
+const plain = new JSONArray();
+plain.push('2024-02', 1706745600000, 95);
+table.addRow(plain);
+
+// Bulk add
+table.addRows([
+  new Row(['2024-03', 1709250000000, 210]),
+  new Row(['2024-04', 1711929600000, 175]),
+]);
+
+console.log(table.length()); // 4
+```
+
+---
+
+## Inherited Array behaviour
+
+Because `Row` extends `JSONArray`, which itself extends `Array<JSONValue>`, all native JavaScript `Array` methods are available:
+
+```typescript
+const row = new Row([10, 20, 30]);
+
+console.log(row.map((v) => (v as number) * 2)); // [20, 40, 60]
+console.log(row.slice(1));                       // [20, 30]
+console.log([...row]);                           // [10, 20, 30]
+```

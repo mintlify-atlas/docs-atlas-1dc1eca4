@@ -1,0 +1,168 @@
+---
+title: "Working with Table blocks in the Node.js library"
+sidebarTitle: "Tables"
+description: "Create, query, and update Table blocks with the @org-quicko/sheet Node.js library. Covers headers, rows, columns, and typed data access patterns."
+---
+
+A `Table` is the primary columnar data block in `@org-quicko/sheet`. It holds a header row that names each column and an ordered list of data rows, making it the right structure for any uniform, grid-shaped data — query results, CSV exports, transaction ledgers, or report line items. Each `Table` lives inside a `Sheet`, which in turn belongs to a `Workbook`. Rows and headers are both `JSONArray` instances from `@org-quicko/core`, so any `JSONValue` — string, number, boolean, or `null` — is a valid cell value.
+
+## Creating a Table
+
+Instantiate a `Table` with `new Table()`, set its header with `setHeader(new JSONArray([...]))`, then attach it to a sheet with `sheet.addBlock(table)`:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table } from '@org-quicko/sheet';
+import { JSONArray } from '@org-quicko/core';
+
+const workbook = new Workbook();
+const sheet    = new Sheet();
+
+const table = new Table();
+table.setHeader(new JSONArray(['id', 'product', 'amount', 'status']));
+
+table.addRow(new JSONArray([1001, 'Widget A', 149.99, 'paid']));
+
+sheet.addBlock(table);
+workbook.addSheet(sheet);
+```
+
+The `Table` constructor initializes both `header` and `rows` to empty `JSONArray` instances, so `setHeader` and `addRow` are always safe to call immediately after construction.
+
+## Reading Rows
+
+Retrieve a single row by its zero-based index with `getRow(index)`, all rows at once with `getRows()`, and the total row count with `length()`:
+
+```typescript
+// All rows as a JSONArray of JSONArrays
+const allRows = table.getRows();
+console.log(allRows.length); // number of rows
+
+// A single row by index — returns a new JSONArray copy
+const firstRow = table.getRow(0);
+console.log(firstRow); // JSONArray [1001, 'Widget A', 149.99, 'paid']
+
+// Row count (header not included)
+console.log(table.length()); // 1
+```
+
+`getRow(index)` throws a `RangeError` when `index` is out of bounds. Always guard with `table.length()` when the bounds are not known statically.
+
+## Reading Columns
+
+`getColumns()` returns a `Column[]` array, one entry per header field. Each `Column` extends `Array<JSONValue>`: the **first element** is the column header value, and every subsequent element is the corresponding cell from each data row. Use `getColumnHeader()` to read the header string without indexing manually:
+
+```typescript
+import { Column } from '@org-quicko/sheet';
+
+const columns: Column[] = table.getColumns();
+
+for (const col of columns) {
+  const header = col.getColumnHeader(); // e.g. 'product'
+  const values = col.slice(1);          // data cells only
+
+  console.log(`Column: ${header}`);
+  values.forEach((val, i) => console.log(`  Row ${i}: ${val}`));
+}
+```
+
+Iterating columns rather than rows is useful when you need to extract all values for a single field — for example, summing the `amount` column across every row:
+
+```typescript
+const amountCol = table.getColumns().find(c => c.getColumnHeader() === 'amount');
+const total = (amountCol?.slice(1) ?? []).reduce((sum, v) => sum + Number(v), 0);
+console.log(total); // 149.99
+```
+
+## Updating Rows
+
+Replace a row in place with `replaceRow(index, row)`, delete a row by zero-based index with `removeRow(index)`, or remove and discard the last row with `popRow()`:
+
+```typescript
+// Replace the row at index 0 with updated data
+table.replaceRow(0, new JSONArray([1001, 'Widget A', 179.99, 'refunded']));
+
+// Remove the row at index 0 entirely
+table.removeRow(0);
+
+// Drop the last row from the table
+table.popRow();
+```
+
+`removeRow(index)` throws a `RangeError` when `index` is out of bounds.
+
+## Adding Multiple Rows
+
+Use `addRows(rows: JSONArray[])` to append several rows in a single call instead of looping over `addRow`:
+
+```typescript
+table.addRows([
+  new JSONArray([1002, 'Gadget B',  89.00, 'paid']),
+  new JSONArray([1003, 'Gadget C', 210.50, 'pending']),
+  new JSONArray([1004, 'Widget D',  45.00, 'paid']),
+]);
+```
+
+## Attaching a Table to a Sheet
+
+A `Table` (or any block) must be attached to a `Sheet` before it is part of the workbook tree. Use `sheet.addBlock(table)`:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table } from '@org-quicko/sheet';
+import { JSONArray } from '@org-quicko/core';
+
+const workbook = new Workbook();
+const sheet    = new Sheet();
+const table    = new Table();
+
+table.setHeader(new JSONArray(['order_id', 'customer', 'total']));
+table.addRow(new JSONArray([5001, 'Acme Corp', 3200.00]));
+
+sheet.addBlock(table);
+workbook.addSheet(sheet);
+
+// Retrieve by index later
+const retrieved = workbook.getSheet(0).getBlock(0) as Table;
+console.log(retrieved.getRow(0)); // JSONArray [5001, 'Acme Corp', 3200]
+```
+
+## Practical Example
+
+The following example builds a payment summary table with four columns and three data rows:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table } from '@org-quicko/sheet';
+import { JSONArray } from '@org-quicko/core';
+
+const workbook = new Workbook();
+const sheet    = new Sheet();
+
+const payments = new Table();
+payments.setHeader(new JSONArray(['payment_id', 'payer', 'amount_usd', 'status']));
+
+payments.addRows([
+  new JSONArray([8001, 'GlobalTech Inc.',  12500.00, 'settled']),
+  new JSONArray([8002, 'Horizon Partners',  4750.50, 'pending']),
+  new JSONArray([8003, 'Apex Solutions',    null,    'failed']),
+]);
+
+sheet.addBlock(payments);
+workbook.addSheet(sheet);
+
+// Read back
+const tbl = workbook.getSheet(0).getBlock(0) as Table;
+console.log(tbl.getHeader());  // JSONArray ['payment_id', 'payer', 'amount_usd', 'status']
+console.log(tbl.length());     // 3
+
+const row = tbl.getRow(1);
+console.log(row); // JSONArray [8002, 'Horizon Partners', 4750.5, 'pending']
+```
+
+<Note>
+  Use `null` for empty or missing cells rather than an empty string or `undefined`. The XLSX converter preserves `null` cells as blank cells on export, and re-imports them back as `null`, keeping the round-trip behavior consistent.
+</Note>

@@ -1,0 +1,186 @@
+---
+title: "WorkbookConverter class — Node.js API reference"
+sidebarTitle: "WorkbookConverter"
+description: "API reference for WorkbookConverter in @org-quicko/sheet: converts between XLSX buffers and typed Workbook instances."
+---
+
+## Overview
+
+`WorkbookConverter` is the low-level conversion engine that bridges XLSX files and the Sheet JSON object model. It is used internally by the [`Workbook.fromXlsx`](/api/nodejs/workbook#workbookfromxlsxbuffer) and [`Workbook.toXlsx`](/api/nodejs/workbook#workboooktoxlsxworkbook) static helpers, which are the recommended entry points for most use-cases.
+
+Use `WorkbookConverter` directly when you need to deserialize into a **subclass** of `Workbook` (e.g. a class that adds custom validation decorators).
+
+```typescript
+import { WorkbookConverter } from '@org-quicko/sheet';
+
+const converter = new WorkbookConverter();
+```
+
+---
+
+## Static properties
+
+### `WorkbookConverter.isoFormatRegex`
+
+A regular expression used during XLSX parsing to detect ISO 8601 date strings in cells whose header contains the word `epoch`. Matching values are automatically converted to Unix epoch milliseconds.
+
+**Value**
+
+```typescript
+static isoFormatRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+```
+
+**Matches examples**
+
+| String | Matches |
+|---|---|
+| `"2024-03-15T10:30:00Z"` | ✅ |
+| `"2024-03-15T10:30:00+05:30"` | ✅ |
+| `"2024-03-15T10:30:00.123Z"` | ✅ |
+| `"2024-03-15"` | ❌ |
+| `"10:30:00"` | ❌ |
+
+---
+
+## Methods
+
+### `toWorkbook<T>(fileBuffer, Class)`
+
+Parses an XLSX binary buffer and deserializes it into a typed `Workbook` instance (or subclass).
+
+Internally, the method:
+1. Reads the XLSX buffer with `xlsx.read(fileBuffer, { raw: true })`.
+2. Iterates each worksheet, detecting block boundaries by blank rows.
+3. Classifies blocks as `List` (block name ends with `"list"`) or `Table` (all other names).
+4. Converts cells in `epoch`-named columns from ISO strings or `MM/dd/yyyy` dates to Unix millisecond integers.
+5. Calls `plainToInstance(Class, …)` to hydrate the typed instance.
+
+**Signature**
+
+```typescript
+toWorkbook<T extends Workbook>(fileBuffer: Buffer, Class: new () => T): T
+```
+
+<ParamField path="fileBuffer" type="Buffer" required>
+  The raw binary content of an `.xlsx` file, e.g. from `fs.readFileSync('file.xlsx')`.
+</ParamField>
+
+<ParamField path="Class" type="new () => T" required>
+  A constructor reference for `Workbook` or any class that extends `Workbook`. The instance's `getName()` value (from Reflect metadata) is used as the workbook title when present.
+</ParamField>
+
+<ResponseField name="returns" type="T">
+  A fully hydrated instance of `Class` with nested `Sheet`, `Table`, and `List` objects.
+</ResponseField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `ConverterException` | The buffer is not valid XLSX, or any sheet, table, or list block cannot be parsed. The original error message is wrapped in the exception. |
+
+**Example — default Workbook**
+
+```typescript
+import * as fs from 'fs';
+import { WorkbookConverter, Workbook } from '@org-quicko/sheet';
+
+const buffer = fs.readFileSync('report.xlsx');
+const converter = new WorkbookConverter();
+const workbook = converter.toWorkbook(buffer, Workbook);
+
+console.log(workbook.length()); // number of sheets
+```
+
+**Example — custom Workbook subclass**
+
+```typescript
+import * as fs from 'fs';
+import { WorkbookConverter, Workbook } from '@org-quicko/sheet';
+import { IsNotEmpty } from 'class-validator';
+
+class ReportWorkbook extends Workbook {
+  @IsNotEmpty()
+  reportId?: string;
+}
+
+const buffer = fs.readFileSync('report.xlsx');
+const converter = new WorkbookConverter();
+const report = converter.toWorkbook(buffer, ReportWorkbook);
+// report is typed as ReportWorkbook
+```
+
+---
+
+### `toXlsx(workbook)`
+
+Converts a `Workbook` instance into an `XLSX.WorkBook` object that can be written to disk or streamed.
+
+Internally, the method:
+1. Creates a new `xlsx` workbook via `XLSX.utils.book_new()`.
+2. Iterates each `Sheet` in the workbook.
+3. For each sheet, iterates its blocks — `Table` blocks are written with a name row, a header row, and data rows; `List` blocks are written as two-column key-value rows.
+4. Epoch values in `epoch`-named columns/keys are converted from Unix milliseconds back to ISO 8601 strings.
+5. XLSX sheet names are capped at 31 characters (the Excel limit), taking the rightmost characters when the name is too long.
+
+**Signature**
+
+```typescript
+toXlsx(workbook: Workbook): XLSX.WorkBook
+```
+
+<ParamField path="workbook" type="Workbook" required>
+  The `Workbook` instance to serialize.
+</ParamField>
+
+<ResponseField name="returns" type="XLSX.WorkBook">
+  An `xlsx` library workbook object. Use `XLSX.writeFile` or `XLSX.write` to produce an actual file or buffer.
+</ResponseField>
+
+**Example**
+
+```typescript
+import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+import { WorkbookConverter, Workbook, Sheet, Table, Row } from '@org-quicko/sheet';
+import { JSONArray } from '@org-quicko/core';
+
+const workbook = new Workbook();
+const sheet    = new Sheet();
+const table    = new Table();
+
+const header = new JSONArray();
+header.push('id', 'name');
+table.setHeader(header);
+table.addRow(new Row([1, 'Alice']));
+
+sheet.addBlock(table);
+workbook.addSheet(sheet);
+
+const converter    = new WorkbookConverter();
+const xlsxWorkbook = converter.toXlsx(workbook);
+
+XLSX.writeFile(xlsxWorkbook, 'output.xlsx');
+```
+
+---
+
+## Relationship to Workbook static helpers
+
+`Workbook.fromXlsx` and `Workbook.toXlsx` are thin static wrappers that construct a `WorkbookConverter` internally:
+
+```typescript
+// Workbook.fromXlsx equivalent
+static fromXlsx(buffer: Buffer): Workbook {
+  const converter = new WorkbookConverter();
+  return converter.toWorkbook(buffer, Workbook);
+}
+
+// Workbook.toXlsx equivalent
+static toXlsx(workbook: Workbook) {
+  const converter = new WorkbookConverter();
+  return converter.toXlsx(workbook);
+}
+```
+
+Prefer the static helpers for standard `Workbook` usage. Use `WorkbookConverter` directly only when deserializing into a custom subclass.

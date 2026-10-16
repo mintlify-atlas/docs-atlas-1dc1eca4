@@ -1,0 +1,118 @@
+---
+title: "Sheet Schema Builder: design workbook schemas visually"
+sidebarTitle: "Schema Builder"
+description: "Use the Sheet Schema Builder browser app to define workbooks, sheets, tables, and lists visually, then export a JSON Schema for use with the code generators."
+---
+
+The Sheet Schema Builder is a browser-based tool in the Sheet Tools Next.js app that lets you design your workbook structure visually and export a JSON Schema without writing code. You create workbooks, add sheets, define blocks of either Table or List type, and configure each field's name, type, and constraints — all through a point-and-click interface. When you're done, you export the schema as a `.schema.json` file ready for use with the Node.js or Java code generators.
+
+## Running Sheet Tools locally
+
+<Steps>
+  <Step title="Navigate to the frontend directory">
+    From the repository root, change into the Sheet Tools app directory:
+
+    ```shell
+    cd frontend/nextjs/org-quicko-sheet-tools
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    Install the required packages using pnpm:
+
+    ```shell
+    pnpm install
+    ```
+  </Step>
+  <Step title="Start the development server">
+    Launch the Next.js development server:
+
+    ```shell
+    pnpm dev
+    ```
+  </Step>
+  <Step title="Open the app in a browser">
+    Open the URL printed by the development server (typically `http://localhost:3000`) in your browser, then navigate to **Schema Builder** from the Sheet Tools home page.
+  </Step>
+</Steps>
+
+## Using the Schema Builder
+
+The builder mirrors the workbook hierarchy: a workbook contains sheets, and each sheet contains blocks. Work through these levels in order.
+
+### Create a workbook
+
+Click **New Workbook** in the sidebar and enter a name. The workbook name becomes the `name` field in the exported schema and is used by the generators as the top-level class name.
+
+### Add sheets to the workbook
+
+With a workbook selected, click **New Sheet** and provide a sheet name. You can add as many sheets as your workbook requires. Each sheet appears as its own entry in the sidebar.
+
+### Add blocks to each sheet
+
+Select a sheet, then click **Add Block**. Give the block a name and choose its type:
+
+- **Table** — rows of structured data with named columns. Corresponds to the `table` `@entity` in workbook JSON.
+- **List** — key-value pairs stored as single-property objects. Corresponds to the `list` `@entity` in workbook JSON.
+
+Blocks can be reordered by dragging them in the sheet view.
+
+### Configure Table blocks
+
+After selecting a Table block, click **Add Column** for each column you want to define. For every column you can set:
+
+- **Name** — the column header name used in `header` and as the property name in generated classes.
+- **Type** — the data type for values in this column (see [Supported field types](#supported-field-types) below).
+- **Optional constraints** — description, examples, pattern, minLength, maxLength, minimum, maximum, enum values, and whether `null` is allowed.
+
+### Configure List blocks
+
+After selecting a List block, click **Add Field** for each key-value pair in the list. For every field you can set:
+
+- **Key** — the property name of the key-value object (for example, `currency`).
+- **Type** — the value type for this key (see [Supported field types](#supported-field-types) below).
+- **Optional constraints** — the same set available for Table columns: description, examples, pattern, minLength, maxLength, minimum, maximum, enum values, and null allowance.
+
+## Supported field types
+
+Both Table column headers and List fields share the same set of supported types:
+
+| Type      | JSON Schema type | Optional format              |
+| --------- | ---------------- | ---------------------------- |
+| `string`  | `string`         | —                            |
+| `number`  | `number`         | `BigDecimal` (arbitrary precision decimal) |
+| `integer` | `integer`        | `Long` (64-bit integer)      |
+| `boolean` | `boolean`        | —                            |
+| `object`  | `object`         | —                            |
+| `array`   | `array`          | —                            |
+
+Select the optional format from the field editor when you need the generator to produce a language-specific type like `Long` or `BigDecimal` instead of the default numeric type.
+
+## Exporting the schema
+
+When your workbook design is complete, click **Export** in the schema panel (or click **Show** to preview the JSON Schema inline first). The browser downloads a `.json` file containing the JSON Schema representation of your workbook.
+
+Save the file with a `.schema.json` extension — for example, `report_workbook.schema.json` — so it is easy to identify and reference from your generator configuration. Pass this file to `schema-to-objects` (Node.js) or the `schema-to-pojo` Maven plugin goal (Java) to generate typed classes.
+
+## Importing an existing schema
+
+The Schema Builder supports importing an existing JSON Schema to continue editing. You can import a schema in two ways:
+
+- **From a URL** — append a `schema_url` query parameter to the Schema Builder URL. The app fetches the schema automatically on load and creates the workbook in the builder. If a workbook with the same name already exists, the app prompts you to confirm before overwriting.
+- **From a file** — paste the JSON Schema text directly or upload a `.json` file through the import dialog.
+
+Both paths reconstruct the workbook, sheet, and block hierarchy in the visual editor so you can make changes and re-export.
+
+<Note>
+  The Schema Builder stores your workbook state in your browser using IndexedDB. Your workbooks persist between sessions without any server-side storage. Clearing your browser's site data for the app will erase all saved workbooks.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Node.js Generator" icon="node-js" href="/generators/nodejs-generator">
+    Generate TypeScript classes from your exported schema using the `schema-to-objects` command.
+  </Card>
+  <Card title="Java Generator" icon="java" href="/generators/java-generator">
+    Generate Java POJOs and Jackson mixins from your exported schema using the Maven plugin.
+  </Card>
+</CardGroup>

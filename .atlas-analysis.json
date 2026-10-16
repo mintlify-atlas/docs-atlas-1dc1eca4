@@ -1,0 +1,136 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Sheet JSON",
+  "projectDescription": "A multi-language toolkit (Java and Node.js) for representing, manipulating, and generating spreadsheet-like data as JSON, including code generators that produce typed classes from JSON Schema.",
+  "theme": "luma",
+  "primaryColor": "#2563EB",
+  "lightColor": "#DBEAFE",
+  "darkColor": "#1E3A8A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/data-model",
+              "concepts/json-structure",
+              "concepts/serialization"
+            ]
+          },
+          {
+            "group": "Node.js Library",
+            "pages": [
+              "nodejs/installation",
+              "nodejs/working-with-tables",
+              "nodejs/working-with-lists",
+              "nodejs/xlsx-import-export",
+              "nodejs/metadata"
+            ]
+          },
+          {
+            "group": "Java Library",
+            "pages": [
+              "java/installation",
+              "java/working-with-tables",
+              "java/working-with-lists",
+              "java/xlsx-import-export"
+            ]
+          },
+          {
+            "group": "Code Generators",
+            "pages": [
+              "generators/overview",
+              "generators/nodejs-generator",
+              "generators/java-generator"
+            ]
+          },
+          {
+            "group": "Sheet Tools",
+            "pages": [
+              "tools/schema-builder",
+              "tools/sheet-visualizer"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Node.js API",
+            "pages": [
+              "api/nodejs/workbook",
+              "api/nodejs/sheet",
+              "api/nodejs/table",
+              "api/nodejs/list",
+              "api/nodejs/item",
+              "api/nodejs/row",
+              "api/nodejs/column",
+              "api/nodejs/workbook-converter",
+              "api/nodejs/types"
+            ]
+          },
+          {
+            "group": "Java API",
+            "pages": [
+              "api/java/workbook",
+              "api/java/sheet",
+              "api/java/table",
+              "api/java/list",
+              "api/java/item",
+              "api/java/workbook-util",
+              "api/java/json-mapper"
+            ]
+          },
+          {
+            "group": "Generator CLI",
+            "pages": [
+              "api/generator/commands"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JSON representation of spreadsheet workbooks with sheets, tables, and lists",
+    "TypeScript/Node.js library (@org-quicko/sheet) for typed workbook manipulation",
+    "Java library (in.org.quicko.sheet:core) with Jackson-based JSON serialization",
+    "Node.js generator CLI with excel-to-schema, json-to-schema, and schema-to-objects commands",
+    "Java Maven plugin (schema-to-pojo goal) for generating POJOs from JSON Schema",
+    "XLSX import/export with automatic epoch date conversion",
+    "Sheet Tools browser app with visual schema builder and data visualizer",
+    "Polymorphic block deserialization via @entity discriminator",
+    "Metadata support on all workbook, sheet, and block nodes"
+  ],
+  "publicApiSurface": [
+    "Workbook (Node.js) — getSheets(), getSheet(index|name), addSheet(), replaceSheet(), removeSheet(), fromXlsx(), toXlsx()",
+    "Sheet (Node.js) — getBlocks(), getBlock(index|name), addBlock(), replaceBlock(), removeBlock()",
+    "Table (Node.js) — getHeader(), setHeader(), getRows(), getRow(), addRow(), addRows(), replaceRow(), removeRow(), getColumns(), popRow()",
+    "List (Node.js) — getItems(), getItem(key), addItem(), addItems(), replaceItem(), removeItem(index|key)",
+    "Item (Node.js) — getKey(), getValue(), getNumberValue(), getStringValue(), getBooleanValue(), equals()",
+    "Row (Node.js) — extends JSONArray",
+    "Column (Node.js) — getColumnHeader()",
+    "WorkbookConverter (Node.js) — toWorkbook(buffer, Class), toXlsx(workbook)",
+    "SheetJsonEntityType enum — WORKBOOK, SHEET, TABLE, LIST, ISSUE_ROW, ISSUE_TABLE",
+    "Workbook (Java) — getSheets(), getSheet(int|String), addSheet(), replaceSheet(), removeSheet()",
+    "Sheet (Java) — getBlocks(), getBlock(int|String), addBlock(), replaceBlock(), removeBlock()",
+    "Table (Java) — getHeader(), setHeader(), getRows(), getRow(int), addRow(), addRows(), replaceRow(), removeRow()",
+    "List (Java) — getItems(), getItem(String|int), addItem(), replaceItem(), removeItem(int|String)",
+    "WorkbookUtil.toExcel(workbook) — converts Workbook to XSSFWorkbook",
+    "JsonMapper (Java) — Jackson ObjectMapper subclass with BigDecimal/BigInteger support",
+    "CLI: excel-to-schema (e2s) --input --output",
+    "CLI: json-to-schema (j2s) --input --output",
+    "CLI: schema-to-objects (s2o) --input --output",
+    "Maven goal: generator:schema-to-pojo (sourcePath, targetPackage, outputDirectory)"
+  ]
+}

@@ -1,0 +1,148 @@
+---
+title: "Column class — Node.js API reference"
+sidebarTitle: "Column"
+description: "API reference for the Column class in @org-quicko/sheet: a projection type returned by Table.getColumns() with header-first element layout."
+---
+
+## Overview
+
+`Column` is a projection type that represents a single vertical slice of a [`Table`](/api/nodejs/table). It extends the native JavaScript `Array<JSONValue>` and uses a header-first element layout:
+
+| Index | Content |
+|---|---|
+| `[0]` | Header cell string (the column name from the table header) |
+| `[1]` | Cell value from data row 0 |
+| `[2]` | Cell value from data row 1 |
+| `[n]` | Cell value from data row n-1 |
+
+`Column` instances are **always created fresh** by [`Table.getColumns()`](/api/nodejs/table#getcolumns). Mutations to a `Column` do **not** propagate back to the underlying `Table`.
+
+```typescript
+import { JSONArray } from '@org-quicko/core';
+import { Row, Table } from '@org-quicko/sheet';
+
+const table = new Table();
+
+const header = new JSONArray();
+header.push('sku', 'quantity', 'price');
+table.setHeader(header);
+
+table.addRow(new Row(['A001', 10, 9.99]));
+table.addRow(new Row(['A002', 5,  14.50]));
+
+const columns = table.getColumns();
+// columns[0] → Column ['sku',      'A001', 'A002']
+// columns[1] → Column ['quantity', 10,     5     ]
+// columns[2] → Column ['price',    9.99,   14.50  ]
+```
+
+---
+
+## Constructor
+
+### `new Column(column)`
+
+Creates a new `Column` and populates it with the provided values.
+
+**Signature**
+
+```typescript
+constructor(column: Array<JSONValue>)
+```
+
+<ParamField path="column" type="Array<JSONValue>" required>
+  An array whose first element should be the column header string and whose subsequent elements are data cell values. `JSONValue` is `string | number | boolean | null | JSONObject | JSONArray` from `@org-quicko/core`.
+</ParamField>
+
+**Example**
+
+```typescript
+import { Column } from '@org-quicko/sheet';
+
+const col = new Column(['price', 9.99, 14.50, 7.00]);
+console.log(col.getColumnHeader()); // 'price'
+console.log(col[1]);                // 9.99
+```
+
+> In normal usage you do not construct `Column` instances directly — they are returned by `Table.getColumns()`.
+
+---
+
+## Methods
+
+### `getColumnHeader()`
+
+Returns the header label for this column — the string stored at index `[0]`.
+
+**Signature**
+
+```typescript
+getColumnHeader(): string
+```
+
+<ResponseField name="returns" type="string">
+  The column name string. Returns an empty string `""` if `this[0]` is falsy.
+</ResponseField>
+
+**Example**
+
+```typescript
+const columns = table.getColumns();
+for (const col of columns) {
+  console.log(col.getColumnHeader());
+}
+// 'sku'
+// 'quantity'
+// 'price'
+```
+
+---
+
+## Iterating columns
+
+Because `Column` extends `Array<JSONValue>`, you can use any standard array method. The slice `col.slice(1)` gives you the data cells without the header:
+
+```typescript
+const columns = table.getColumns();
+
+for (const col of columns) {
+  const header    = col.getColumnHeader();   // col[0]
+  const dataCells = col.slice(1);            // col[1..n]
+
+  const sum = dataCells.reduce(
+    (acc, v) => acc + (typeof v === 'number' ? v : 0),
+    0
+  );
+
+  console.log(`${header}: total = ${sum}`);
+}
+// quantity: total = 15
+// price: total = 24.49
+```
+
+---
+
+## Column-oriented access example
+
+Use `getColumns()` when you want to process data column-by-column rather than row-by-row:
+
+```typescript
+import { JSONArray } from '@org-quicko/core';
+import { Row, Table } from '@org-quicko/sheet';
+
+const table = new Table();
+const header = new JSONArray();
+header.push('month', 'sales');
+table.setHeader(header);
+
+table.addRows([
+  new Row(['Jan', 100]),
+  new Row(['Feb', 150]),
+  new Row(['Mar', 200]),
+]);
+
+const [monthCol, salesCol] = table.getColumns();
+
+console.log(monthCol.getColumnHeader()); // 'month'
+console.log(salesCol.slice(1));          // [100, 150, 200]
+```

@@ -1,0 +1,127 @@
+---
+title: "Install @org-quicko/sheet for Node.js and TypeScript"
+sidebarTitle: "Installation"
+description: "Install the @org-quicko/sheet package, configure TypeScript decorator support, and set up reflect-metadata as the first import in your application."
+---
+
+`@org-quicko/sheet` is a TypeScript toolkit that provides a spreadsheet-like data structure — `Workbook`, `Sheet`, `Table`, and `List` — designed for modern Node.js applications. The package is available on the npm registry as `@org-quicko/sheet` at version **1.0.6** and requires **Node.js >= 8.0.0**. It ships with built-in JSON serialization, XLSX import/export, and typed accessor methods for every level of the data hierarchy.
+
+## Install the Package
+
+Install `@org-quicko/sheet` using your preferred package manager:
+
+<CodeGroup>
+```bash npm
+npm install @org-quicko/sheet
+```
+
+```bash yarn
+yarn add @org-quicko/sheet
+```
+
+```bash pnpm
+pnpm add @org-quicko/sheet
+```
+</CodeGroup>
+
+`reflect-metadata` is declared as a direct dependency of the package and is installed automatically. If you use it elsewhere in your project or want to pin it explicitly, you can install it separately:
+
+<CodeGroup>
+```bash npm
+npm install reflect-metadata
+```
+
+```bash yarn
+yarn add reflect-metadata
+```
+
+```bash pnpm
+pnpm add reflect-metadata
+```
+</CodeGroup>
+
+All other runtime dependencies — `@org-quicko/core`, `class-transformer`, `class-validator`, and `xlsx` — are bundled as `dependencies` and require no additional install steps.
+
+## Configure TypeScript
+
+`@org-quicko/sheet` relies on TypeScript decorators and decorator metadata for its serialization layer. Add the following two compiler flags to your `tsconfig.json`. Setting `useDefineForClassFields` to `false` is also strongly recommended to prevent native class-field semantics from interfering with decorator-applied property descriptors:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+    "skipLibCheck": true
+  }
+}
+```
+
+If your project already has a `tsconfig.json`, you only need to add or update the three options shown above — all other existing settings remain unchanged.
+
+## Import reflect-metadata
+
+<Warning>
+  `reflect-metadata` must be the **very first import** in your application entry file, before any `@org-quicko/sheet` class is loaded by the module system. Placing it after a Sheet import — or in a module that loads after the entry point — causes decorator metadata to be absent at runtime, leading to silent serialization failures.
+</Warning>
+
+```typescript src/index.ts
+// Must be the first import — before everything else
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table, List, Item } from '@org-quicko/sheet';
+import { JSONArray, JSONObject, JSONValue } from '@org-quicko/core';
+
+// Your application code starts here
+const workbook = new Workbook();
+```
+
+## Verify the Installation
+
+Create a `Workbook` instance and inspect its initial state to confirm the package is installed and TypeScript is configured correctly:
+
+```typescript src/index.ts
+import 'reflect-metadata';
+
+import { Workbook } from '@org-quicko/sheet';
+
+const workbook = new Workbook();
+
+console.log(workbook.getName());    // 'workbook'
+console.log(workbook.getSheets()); // []
+console.log(workbook.length());    // 0
+```
+
+If the snippet compiles and runs without error, the installation is complete.
+
+## Package Exports
+
+`@org-quicko/sheet` ships **both CommonJS and ESM builds**, selected automatically based on your project's module system:
+
+- **ESM** — `dist/esm/index.js` (used by `import` statements and modern bundlers)
+- **CJS** — `dist/cjs/index.cjs` (used by `require()` in CommonJS environments)
+- **Types** — `dist/types/index.d.ts` (TypeScript declarations for the root export)
+
+The package also exposes a `./beans` subpath export that lets you import data classes directly without loading the full index:
+
+```typescript
+// Root export — full library
+import { Workbook, Sheet, Table, List, Item } from '@org-quicko/sheet';
+
+// Beans subpath — data classes only
+import { Workbook, Sheet, Table, List, Item } from '@org-quicko/sheet/beans';
+```
+
+Individual bean subpath exports are also available (`@org-quicko/sheet/beans/Workbook`, etc.) for environments that benefit from finer-grained imports.
+
+<CardGroup cols={2}>
+  <Card title="Working with Tables" icon="table" href="nodejs/working-with-tables">
+    Create, query, and update columnar Table blocks with headers and typed rows.
+  </Card>
+  <Card title="Working with Lists" icon="list" href="nodejs/working-with-lists">
+    Create, query, and update key-value List blocks using Item objects.
+  </Card>
+</CardGroup>

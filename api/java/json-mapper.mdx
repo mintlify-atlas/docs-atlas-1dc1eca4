@@ -1,0 +1,127 @@
+---
+title: "JsonMapper — Java API reference"
+sidebarTitle: "JsonMapper"
+description: "API reference for JsonMapper in in.org.quicko.sheet:core: a Jackson ObjectMapper subclass configured for BigDecimal floats and workbook JSON deserialization."
+---
+
+## Overview
+
+`JsonMapper` is a pre-configured subclass of `tools.jackson.databind.json.JsonMapper` (Jackson 3.x). It applies a fixed set of deserialization features and visibility rules that are required for correct round-trip serialization of Sheet JSON [`Workbook`](/api/java/workbook) objects. Use it in place of a bare `ObjectMapper` whenever you read or write Sheet JSON payloads.
+
+**Package:** `in.org.quicko.sheet.mapper`
+
+**Extends:** `tools.jackson.databind.json.JsonMapper`
+
+```java
+import in.org.quicko.sheet.mapper.JsonMapper;
+```
+
+---
+
+## Constructor
+
+### `JsonMapper()`
+
+```java
+public JsonMapper()
+```
+
+Constructs a new `JsonMapper` with the following configuration baked in at construction time:
+
+| Configuration | Detail |
+|---|---|
+| **`JsonOrgModule`** registered | Enables Jackson to serialize and deserialize `org.json.JSONArray` and `org.json.JSONObject` types, which are used by [`Table`](/api/java/table) for header and row data |
+| **`USE_BIG_DECIMAL_FOR_FLOATS`** enabled | All JSON floating-point numbers are deserialized as `BigDecimal` instead of `Double`, preserving exact decimal representation |
+| **`USE_BIG_INTEGER_FOR_INTS`** enabled | All JSON integer numbers are deserialized as `BigInteger` instead of `Integer` or `Long`, preventing silent overflow |
+| **Getter visibility → `NONE`** | Jackson will not auto-detect public `getXxx()` methods as serializable properties; only explicitly annotated fields (via `@JsonProperty`) are included |
+| **Is-getter visibility → `NONE`** | `isXxx()` boolean getters are not auto-detected as properties |
+| **Setter visibility → `NONE`** | `setXxx()` methods are not auto-detected for deserialization; only `@JsonProperty`-annotated fields are used |
+
+The visibility settings prevent Jackson from accidentally serializing internal or inherited getter/setter pairs that are not part of the Sheet JSON schema.
+
+---
+
+## Inherited API
+
+Because `JsonMapper` extends `tools.jackson.databind.json.JsonMapper`, all standard Jackson serialization and deserialization methods are available:
+
+| Method | Description |
+|---|---|
+| `writeValueAsString(Object)` | Serialize an object to a JSON string |
+| `writeValueAsBytes(Object)` | Serialize an object to a UTF-8 JSON byte array |
+| `writerWithDefaultPrettyPrinter()` | Returns a writer that produces indented JSON |
+| `readValue(String, Class<T>)` | Deserialize a JSON string to the given type |
+| `readValue(byte[], Class<T>)` | Deserialize a JSON byte array to the given type |
+| `readValue(File, Class<T>)` | Deserialize a JSON file to the given type |
+| `readValue(InputStream, Class<T>)` | Deserialize from a stream |
+
+---
+
+## Usage
+
+### Serialization
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.mapper.JsonMapper;
+
+JsonMapper mapper = new JsonMapper();
+
+// Serialize to a compact JSON string
+String json = mapper.writeValueAsString(workbook);
+
+// Serialize to indented (pretty-printed) JSON
+String pretty = mapper.writerWithDefaultPrettyPrinter()
+                      .writeValueAsString(workbook);
+```
+
+### Deserialization
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.mapper.JsonMapper;
+
+JsonMapper mapper = new JsonMapper();
+
+// From a JSON string
+Workbook wb = mapper.readValue(json, Workbook.class);
+
+// From a file
+Workbook wb2 = mapper.readValue(new java.io.File("workbook.json"), Workbook.class);
+```
+
+### Round-trip example
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.List;
+import in.org.quicko.sheet.mapper.JsonMapper;
+
+// Build
+Workbook original = new Workbook();
+Sheet sheet = new Sheet();
+sheet.setName("Config");
+List list = new List();
+list.setName("Settings");
+list.addItem("env", "production");
+list.addItem("debug", false);
+sheet.addBlock(list);
+original.addSheet(sheet);
+
+// Serialize → Deserialize
+JsonMapper mapper = new JsonMapper();
+String json = mapper.writeValueAsString(original);
+Workbook restored = mapper.readValue(json, Workbook.class);
+
+System.out.println(restored.size());                              // 1
+System.out.println(restored.getSheets().get(0).getName());       // Config
+```
+
+---
+
+## Notes
+
+- `JsonMapper` is **not** thread-safe for reconfiguration after construction, but a fully constructed instance is safe to share across threads for read/write operations (same thread-safety contract as `ObjectMapper`).
+- The `JsonOrgModule` dependency is `tools.jackson.datatype:jackson-datatype-json-org`. Ensure it is present on the classpath alongside `in.org.quicko.sheet:core`.
+- If you need to serialize [`Table`](/api/java/table) objects correctly, `JsonMapper` is required — a plain `ObjectMapper` will fail to handle `JSONArray` fields.

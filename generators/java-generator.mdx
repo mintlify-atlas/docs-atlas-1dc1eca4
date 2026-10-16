@@ -1,0 +1,121 @@
+---
+title: "Generate Java POJOs from JSON Schema with the Sheet Maven plugin"
+sidebarTitle: "Java Generator"
+description: "Configure the in.org.quicko.sheet:generator Maven plugin, set sourcePath and targetPackage, and run the schema-to-pojo goal to generate typed Java beans."
+---
+
+`in.org.quicko.sheet:generator` (version 2.0.0) is a Maven plugin that generates typed Java POJOs and Jackson mixin classes from a workbook JSON Schema. Its primary goal, `schema-to-pojo`, runs during the `generate-sources` lifecycle phase and automatically registers the output directory as a compile source root — so generated classes are available to the rest of your build without any extra configuration.
+
+## Add the plugin to pom.xml
+
+Add the following `<plugin>` block inside your project's `<build><plugins>` section:
+
+```xml pom.xml
+<plugin>
+  <groupId>in.org.quicko.sheet</groupId>
+  <artifactId>generator</artifactId>
+  <version>2.0.0</version>
+  <executions>
+    <execution>
+      <goals>
+        <goal>schema-to-pojo</goal>
+      </goals>
+    </execution>
+  </executions>
+  <configuration>
+    <sourcePath>${project.basedir}/src/main/resources/schema.json</sourcePath>
+    <targetPackage>com.example.generated</targetPackage>
+    <!-- outputDirectory defaults to ${project.build.directory}/generated-sources/main/java -->
+  </configuration>
+</plugin>
+```
+
+## Configuration parameters
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `sourcePath` | ✅ | — | Absolute or project-relative path to the JSON Schema file to generate from |
+| `targetPackage` | ✅ | — | Java package name for all generated classes (e.g. `com.example.generated`) |
+| `outputDirectory` | ❌ | `${project.build.directory}/generated-sources/main/java` | Root directory where generated Java source files are written |
+
+The plugin resolves `sourcePath` as-is, so Maven property expressions like `${project.basedir}` are fully supported. The generated sources are placed under `<outputDirectory>/<targetPackage-as-path>/` (dots in the package name are converted to path separators).
+
+## Run the generator
+
+The `schema-to-pojo` goal is bound to the `generate-sources` lifecycle phase, so it runs automatically as part of a standard build:
+
+```bash
+mvn generate-sources
+```
+
+You can also trigger it explicitly as part of a full build:
+
+```bash
+mvn compile
+```
+
+After execution, the plugin calls `project.addCompileSourceRoot(outputDirectory)`, so the generated classes are visible to `javac` during the `compile` phase without any additional configuration.
+
+## Build from source
+
+If you need to install the generator plugin locally (for example, to test a snapshot version or work from the repository), first ensure the core library is installed, then install the plugin:
+
+```bash
+# 1. Install the core library (required dependency)
+mvn -f lib/java/org-quicko-sheet-core/pom.xml install -Dgpg.skip=true
+
+# 2. Install the generator plugin
+mvn -f lib/java/org-quicko-sheet-generator/pom.xml install -Dgpg.skip=true
+```
+
+The `-Dgpg.skip=true` flag skips GPG artifact signing, which is only needed for publishing to Maven Central.
+
+## Generated output
+
+The `schema-to-pojo` goal produces the same conceptual structure as the Node.js generator, organized as Java source files under your `targetPackage`:
+
+| Output | Description |
+|--------|-------------|
+| `workbook/` | Top-level `Workbook` POJO typed to its sheet types |
+| `sheets/` | One POJO per sheet type |
+| `tables/` | One POJO per table block, plus a typed row POJO |
+| `lists/` | One POJO per list block |
+| `mixins/` | Jackson mixin classes for serialization / deserialization |
+
+All classes are plain Java beans annotated for use with the Jackson `ObjectMapper` provided by the Sheet JSON core library.
+
+## Using generated classes
+
+Import the generated workbook and use the typed accessors in your application:
+
+```java
+import com.example.generated.workbook.MyWorkbook;
+import com.example.generated.sheets.SalesSheet;
+import com.example.generated.tables.OrdersTable;
+import com.example.generated.tables.OrdersRow;
+
+// Create a typed workbook
+MyWorkbook workbook = new MyWorkbook();
+
+// Build a sheet with a typed table
+SalesSheet sheet = new SalesSheet();
+OrdersTable table = new OrdersTable();
+
+OrdersRow row = new OrdersRow();
+row.setOrderId("ORD-001");
+row.setAmount(299.99);
+table.addRow(row);
+
+sheet.addBlock(table);
+workbook.addSheet(sheet);
+```
+
+Because the plugin registers the output directory as a compile source root, no additional classpath configuration is required — the generated package is importable just like any other source in your project.
+
+<Warning>
+  **Do not edit generated files directly.** The `schema-to-pojo` goal overwrites the entire output directory on every run. Put any custom logic in separate classes that extend or delegate to the generated POJOs so your changes survive regeneration.
+</Warning>
+
+<Note>
+  The generated classes depend on the Sheet JSON core library (`in.org.quicko.sheet:core`) at compile time. Make sure it is declared as a `<dependency>` in your `pom.xml` alongside the generator plugin.
+</Note>

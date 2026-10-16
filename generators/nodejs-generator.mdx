@@ -1,0 +1,166 @@
+---
+title: "Generate TypeScript classes from JSON Schema with @org-quicko/sheet-generator"
+sidebarTitle: "Node.js Generator"
+description: "Install @org-quicko/sheet-generator and use the excel-to-schema, json-to-schema, and schema-to-objects CLI commands to generate typed TypeScript classes."
+---
+
+`@org-quicko/sheet-generator` (version 1.0.3) is a Node.js CLI tool that generates fully-typed TypeScript classes from a workbook JSON Schema. Given a schema that describes your workbook, sheets, tables, and lists, the generator outputs decorator-ready classes organized into a clean directory structure — eliminating hand-written boilerplate and keeping your models consistent as your schema evolves.
+
+## Install
+
+<Info>
+  **Prerequisites:** Node.js v20.0.0 or higher is required.
+</Info>
+
+<CodeGroup>
+  ```bash npm
+  npm install @org-quicko/sheet-generator
+  ```
+
+  ```bash yarn
+  yarn add @org-quicko/sheet-generator
+  ```
+
+  ```bash pnpm
+  pnpm add @org-quicko/sheet-generator
+  ```
+</CodeGroup>
+
+## Available commands
+
+The package exposes three CLI commands, each with a short alias:
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `schema-to-objects` | `s2o` | Generate TypeScript classes from a JSON Schema file or directory |
+| `excel-to-schema` | `e2s` | Generate a JSON Schema from an `.xlsx` / `.xls` Excel file or directory |
+| `json-to-schema` | `j2s` | Generate a JSON Schema from a JSON workbook file or directory |
+
+### `schema-to-objects` (alias `s2o`)
+
+Reads a JSON Schema and outputs TypeScript classes into the specified directory.
+
+```bash
+schema-to-objects --input <path-to-schema-file-or-directory> --output <path-to-output-directory>
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `-i, --input <path>` | ✅ | Path to the JSON Schema file or a directory of schema files |
+| `-o, --output <path>` | ✅ | Directory where the TypeScript classes will be written |
+
+### `excel-to-schema` (alias `e2s`)
+
+Reads an Excel workbook (`.xlsx` or `.xls`) and generates a JSON Schema that describes its structure.
+
+```bash
+excel-to-schema --input <path-to-excel-file-or-directory> --output <path-to-output-directory>
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `-i, --input <path>` | ✅ | Path to the `.xlsx` / `.xls` file or a directory containing Excel files |
+| `-o, --output <path>` | ✅ | Directory where the generated `.schema.json` files will be written |
+
+### `json-to-schema` (alias `j2s`)
+
+Reads a JSON workbook document and generates a JSON Schema from it.
+
+```bash
+json-to-schema --input <path-to-json-file-or-directory> --output <path-to-output-directory>
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `-i, --input <path>` | ✅ | Path to the JSON workbook file or a directory of JSON files |
+| `-o, --output <path>` | ✅ | Directory where the generated `.schema.json` files will be written |
+
+## Add a generate script to package.json
+
+The recommended approach is to wire `schema-to-objects` into your project's `scripts` so you can regenerate with a single command:
+
+```json package.json
+{
+  "scripts": {
+    "generate": "schema-to-objects --input ./schema --output ./src/generated"
+  }
+}
+```
+
+Adjust the `--input` and `--output` paths to match your project layout.
+
+## Run the generator
+
+```bash
+npm run generate
+```
+
+You can also invoke the commands directly without a script entry:
+
+```bash
+# Using the full command name
+npx schema-to-objects --input ./schema/workbook.schema.json --output ./src/generated
+
+# Using the alias
+npx s2o --input ./schema --output ./src/generated
+```
+
+## Directory input
+
+Both `--input` and `--output` accept either a single file or a directory path:
+
+- **File input** — the generator processes that one schema and writes its output into the root of `--output`.
+- **Directory input** — the generator walks the directory recursively, processes every `.json` file it finds, and mirrors the relative directory structure inside `--output`. This lets you manage multiple workbook schemas in a single project.
+
+## Generated output structure
+
+After running `schema-to-objects`, the output directory contains the following layout:
+
+```
+src/generated/
+├── workbook/
+│   └── MyWorkbook.ts
+├── sheets/
+│   ├── SalesSheet.ts
+│   └── SummarySheet.ts
+├── tables/
+│   ├── OrdersTable.ts
+│   └── OrdersRow.ts
+├── lists/
+│   └── ProductList.ts
+├── mixins/
+│   ├── WorkbookMixin.ts
+│   └── OrdersTableMixin.ts
+└── index.ts
+```
+
+All subdirectories are created automatically if they do not already exist. The `index.ts` barrel file re-exports every generated class so consuming code only needs a single import path.
+
+## Using generated classes
+
+Import from the generated `index.ts` and use the typed classes directly in your application:
+
+```typescript
+import { MyWorkbook, SalesSheet, OrdersTable, OrdersRow } from './src/generated';
+
+// Create a typed workbook instance
+const workbook = new MyWorkbook();
+
+// Add a sheet
+const sheet = new SalesSheet();
+workbook.addSheet(sheet);
+
+// Add a typed table to the sheet
+const table = new OrdersTable();
+const row = new OrdersRow();
+row.orderId = 'ORD-001';
+row.amount = 299.99;
+table.addRow(row);
+sheet.addBlock(table);
+```
+
+Make sure your IDE or `tsconfig.json` includes the generated output directory in the project's source paths so the types resolve correctly.
+
+<Warning>
+  **Do not edit generated files directly.** Every file inside the output directory is overwritten on each generator run. Place any custom logic in separate files that import from or extend the generated classes — your changes will survive regeneration.
+</Warning>

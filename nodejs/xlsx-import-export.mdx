@@ -1,0 +1,156 @@
+---
+title: "Import and export XLSX files with the Node.js library"
+sidebarTitle: "XLSX Import & Export"
+description: "Parse .xlsx files into typed Workbook objects and export Workbook instances back to .xlsx using Workbook.fromXlsx and Workbook.toXlsx in Node.js."
+---
+
+`@org-quicko/sheet` provides a complete round-trip between `.xlsx` files and the typed `Workbook` object model. `Workbook.fromXlsx` parses a raw file buffer into a fully-typed hierarchy of `Sheet`, `Table`, and `List` objects. `Workbook.toXlsx` converts that same workbook back into an `XLSX.WorkBook` (from the [SheetJS](https://sheetjs.com/) library) that you can write to disk or stream to a client. Both directions handle epoch date conversion automatically with no extra configuration.
+
+## Importing an XLSX File
+
+Read the file into a `Buffer` using Node's `fs.readFileSync`, then pass it to the static method `Workbook.fromXlsx(buffer)`. The converter scans every worksheet, detects blocks, and returns a populated `Workbook` instance you can navigate immediately:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table, List } from '@org-quicko/sheet';
+import * as fs from 'fs';
+
+// Read raw file bytes
+const buffer = fs.readFileSync('./report.xlsx');
+
+// Parse into a typed Workbook
+const workbook = Workbook.fromXlsx(buffer);
+
+// Navigate the object tree
+const sheet: Sheet = workbook.getSheet(0);
+
+// Access a Table block by name
+const salesTable = sheet.getBlock('sales') as Table;
+console.log(salesTable.getHeader()); // JSONArray of column names
+console.log(salesTable.length());    // number of data rows
+
+// Access a List block by name
+const summaryList = sheet.getBlock('summary list') as List;
+console.log(summaryList.getItem('total')?.getValue());
+```
+
+## How Blocks Are Detected
+
+The converter scans each Excel worksheet row-by-row and applies the following rules to discover and classify blocks:
+
+1. **Block boundaries** — a contiguous group of non-empty rows forms one block. A blank row signals the end of the current block.
+2. **Block name** — the very first row of each contiguous group is treated as the block's name.
+3. **Block type** — if the block name ends with `'list'` (case-insensitive), the block is parsed as a `List`; otherwise it is parsed as a `Table`.
+4. **Table structure** — the row immediately after the name row becomes the header; every subsequent row becomes a data row.
+5. **List structure** — every row after the name row is read as a key-value pair from column 0 (key) and column 1 (value).
+
+<Note>
+  Name your Excel blocks deliberately. A block named `"Summary List"` or `"config_list"` is imported as a `List`. A block named `"Orders"` or `"User Data"` is imported as a `Table`. The suffix check is case-insensitive — `"SUMMARY LIST"` and `"summary list"` both produce a `List`.
+</Note>
+
+## Epoch Date Handling
+
+`@org-quicko/sheet` performs automatic date conversion for any `Table` column or `List` item key whose name contains the substring `'epoch'` (case-insensitive, e.g. `created_epoch`, `placed_epoch`, `LAST_LOGIN_EPOCH`).
+
+| Direction  | Behavior                                                                              |
+|------------|---------------------------------------------------------------------------------------|
+| **Import** | ISO 8601 strings in an epoch column/key are converted to epoch milliseconds (`number`). |
+| **Export** | Numeric epoch milliseconds in an epoch column/key are converted to ISO 8601 strings.  |
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook, Sheet, Table, List, Item } from '@org-quicko/sheet';
+import { JSONArray } from '@org-quicko/core';
+import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+
+// --- Build a workbook with epoch columns ---
+const workbook = new Workbook();
+const sheet    = new Sheet();
+
+const orders = new Table();
+orders.setHeader(new JSONArray(['order_id', 'placed_epoch', 'shipped_epoch']));
+orders.addRow(new JSONArray([1001, 1700000000000, 1700172800000]));
+
+const meta = new List();
+meta.addItem(new Item('created_epoch', 1700000000000)); // epoch key triggers conversion
+
+sheet.addBlock(orders);
+sheet.addBlock(meta);
+workbook.addSheet(sheet);
+
+// Export — epoch columns are written as ISO 8601 strings in the .xlsx file
+const xlsxWb = Workbook.toXlsx(workbook);
+XLSX.writeFile(xlsxWb, './orders.xlsx');
+
+// Re-import — ISO strings are automatically converted back to epoch milliseconds
+const reimported = Workbook.fromXlsx(fs.readFileSync('./orders.xlsx'));
+const tbl = reimported.getSheet(0).getBlock(0) as Table;
+console.log(tbl.getRow(0)); // JSONArray [1001, 1700000000000, 1700172800000]
+```
+
+## Exporting to XLSX
+
+Pass any `Workbook` instance to `Workbook.toXlsx(workbook)`. It returns an `XLSX.WorkBook` object. Use `XLSX.writeFile` to save it to the filesystem or `XLSX.write` to produce an in-memory buffer for HTTP responses:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook } from '@org-quicko/sheet';
+import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+
+// Build or load your workbook, then export:
+const xlsxWorkbook = Workbook.toXlsx(workbook);
+
+// Write directly to a file
+XLSX.writeFile(xlsxWorkbook, './output.xlsx');
+
+// — or — produce a Buffer for streaming / HTTP response
+const buffer: Buffer = XLSX.write(xlsxWorkbook, {
+  type:     'buffer',
+  bookType: 'xlsx',
+});
+fs.writeFileSync('./output.xlsx', buffer);
+```
+
+## Sheet Name Constraints
+
+Excel limits worksheet names to **31 characters**. `@org-quicko/sheet` handles this automatically: when writing a sheet to XLSX, the converter takes the **last segment** of the sheet's name after the final `.` (dot), then trims that segment to a maximum of 31 characters from the right.
+
+| Sheet name                              | Resulting worksheet name      |
+|-----------------------------------------|-------------------------------|
+| `"salesReport"`                         | `"salesReport"`               |
+| `"com.example.app.salesReport"`         | `"salesReport"`               |
+| `"verylongsheetnamethatiswayover31chars"` | last 31 chars from the right |
+
+Keep sheet names short and unambiguous to avoid unexpected truncation in the generated file.
+
+## Subclassing Workbook for Custom Titles
+
+You can subclass `Workbook` and decorate the subclass with `@Reflect.metadata('name', '...')` to embed a custom title in the XLSX file properties. The same title is used as the workbook name when the file is re-imported with `fromXlsx`:
+
+```typescript
+import 'reflect-metadata';
+
+import { Workbook } from '@org-quicko/sheet';
+import * as XLSX from 'xlsx';
+
+@Reflect.metadata('name', 'Monthly Sales Report')
+@Reflect.metadata('@entity', 'workbook')
+class SalesWorkbook extends Workbook {}
+
+const wb = new SalesWorkbook();
+// wb.getName() === 'Monthly Sales Report'
+
+const xlsxWb = Workbook.toXlsx(wb);
+XLSX.writeFile(xlsxWb, './sales-report.xlsx');
+
+// Re-importing preserves the name
+const reimported = SalesWorkbook.fromXlsx(
+  require('fs').readFileSync('./sales-report.xlsx')
+) as SalesWorkbook;
+console.log(reimported.getName()); // 'Monthly Sales Report'
+```

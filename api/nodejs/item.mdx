@@ -1,0 +1,206 @@
+---
+title: "Item class — Node.js API reference"
+sidebarTitle: "Item"
+description: "Full API reference for the Item class in @org-quicko/sheet: key-value pair with typed value accessors and equality comparison."
+---
+
+## Overview
+
+`Item` is a simple, immutable-style key-value pair used as the element type of a [`List`](/api/nodejs/list). The key is always a `string`; the value is any `JSONValue` (string, number, boolean, null, object, or array as defined by `@org-quicko/core`).
+
+```typescript
+import { Item, List } from '@org-quicko/sheet';
+
+const item = new Item('revenue', 42500);
+console.log(item.getKey());          // 'revenue'
+console.log(item.getNumberValue());  // 42500
+
+const list = new List();
+list.addItem(item);
+```
+
+---
+
+## Constructor
+
+### `new Item(key, value)`
+
+Creates a new `Item` with the given key and value.
+
+**Signature**
+
+```typescript
+constructor(key: string, value: JSONValue)
+```
+
+<ParamField path="key" type="string" required>
+  The identifier for this item. Used for all lookups within a `List` (case-insensitive).
+</ParamField>
+
+<ParamField path="value" type="JSONValue" required>
+  The data value associated with the key. `JSONValue` is `string | number | boolean | null | JSONObject | JSONArray` from `@org-quicko/core`.
+</ParamField>
+
+**Example**
+
+```typescript
+const strItem  = new Item('name',    'Alice');
+const numItem  = new Item('score',   98.6);
+const boolItem = new Item('active',  true);
+const nullItem = new Item('notes',   null);
+```
+
+---
+
+## Key and value accessors
+
+### `getKey()`
+
+Returns the item's key.
+
+**Signature**
+
+```typescript
+getKey(): string
+```
+
+<ResponseField name="returns" type="string">
+  The key string provided at construction time.
+</ResponseField>
+
+**Example**
+
+```typescript
+console.log(item.getKey()); // 'revenue'
+```
+
+---
+
+### `getValue()`
+
+Returns the item's raw value as the original `JSONValue` type.
+
+**Signature**
+
+```typescript
+getValue(): JSONValue
+```
+
+<ResponseField name="returns" type="JSONValue">
+  The value exactly as stored — no coercion is applied.
+</ResponseField>
+
+**Example**
+
+```typescript
+const raw = item.getValue(); // 42500 (number)
+```
+
+---
+
+## Typed value accessors
+
+### `getNumberValue()`
+
+Coerces the stored value to a `number` using the `Number()` constructor.
+
+**Signature**
+
+```typescript
+getNumberValue(): number
+```
+
+<ResponseField name="returns" type="number">
+  The numeric representation of the value. Returns `NaN` if the value cannot be converted to a number (e.g. `"hello"`).
+</ResponseField>
+
+**Example**
+
+```typescript
+const item = new Item('count', '7');
+console.log(item.getNumberValue()); // 7
+
+const bad = new Item('label', 'hello');
+console.log(bad.getNumberValue());  // NaN
+```
+
+---
+
+### `getStringValue()`
+
+Coerces the stored value to a `string` using the `String()` constructor.
+
+**Signature**
+
+```typescript
+getStringValue(): string
+```
+
+<ResponseField name="returns" type="string">
+  The string representation of the value.
+</ResponseField>
+
+**Example**
+
+```typescript
+const item = new Item('active', true);
+console.log(item.getStringValue()); // 'true'
+```
+
+---
+
+### `getBooleanValue()`
+
+Coerces the stored value to a `boolean` using the `Boolean()` constructor.
+
+**Signature**
+
+```typescript
+getBooleanValue(): boolean
+```
+
+<ResponseField name="returns" type="boolean">
+  `false` for falsy values (`0`, `""`, `null`, `undefined`, `false`); `true` for everything else.
+</ResponseField>
+
+**Example**
+
+```typescript
+new Item('flag', 1).getBooleanValue();    // true
+new Item('flag', 0).getBooleanValue();    // false
+new Item('flag', 'yes').getBooleanValue(); // true
+new Item('flag', '').getBooleanValue();   // false
+```
+
+---
+
+## Equality
+
+### `equals(item)`
+
+Compares this `Item` to another for equality. The key comparison is **case-insensitive**; the value comparison is **strict** (`===`).
+
+**Signature**
+
+```typescript
+equals(item: Item): boolean
+```
+
+<ParamField path="item" type="Item" required>
+  The other `Item` to compare against.
+</ParamField>
+
+<ResponseField name="returns" type="boolean">
+  `true` if both the key (case-insensitive) and the value (strict equality) match; `false` otherwise.
+</ResponseField>
+
+**Example**
+
+```typescript
+const a = new Item('Name', 'Alice');
+const b = new Item('name', 'Alice');
+const c = new Item('name', 'Bob');
+
+a.equals(b); // true  — keys match case-insensitively, values are identical
+a.equals(c); // false — same key, different value
+```

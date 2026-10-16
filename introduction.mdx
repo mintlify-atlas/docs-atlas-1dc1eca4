@@ -1,0 +1,128 @@
+---
+title: "Sheet JSON: spreadsheet data as portable JSON"
+sidebarTitle: "Introduction"
+description: "Sheet JSON represents workbook data as structured JSON. Learn the core concepts, supported languages, and how the Workbook→Sheet→Block hierarchy works."
+---
+
+Sheet JSON is a specification and set of libraries that represent spreadsheet workbooks as plain JSON. Instead of binary file formats or proprietary APIs, every workbook becomes a portable, human-readable document that any program can read, write, or transform without a spreadsheet engine. This makes it straightforward to share data across platforms (**data portability**), let different applications and APIs consume the same format without translation (**interoperability**), programmatically build or merge large reports without manual spreadsheet manipulation (**automation**), and ensure that headers, rows, block names, and metadata are always laid out the same way regardless of who produced the document (**standardized structure**). First-party libraries for **Java** and **Node.js** handle serialization and deserialization so application code works with strongly typed objects rather than raw JSON strings.
+
+---
+
+## The workbook structure
+
+A Sheet JSON document is organized as a four-level hierarchy:
+
+```
+Workbook
+└── Sheet (one or more)
+    └── Block (one or more — each block is a Table or a List)
+```
+
+Every object in the hierarchy carries two special fields:
+
+| Field | Purpose |
+|---|---|
+| `@entity` | Identifies the type of the object (`"workbook"`, `"sheet"`, `"table"`, or `"list"`). Deserializers use this discriminator to reconstruct the correct class. |
+| `name` | A string label that lets code retrieve a specific workbook, sheet, or block by name rather than by index. |
+
+The following complete example contains one sheet with two blocks — a `payment_table` and a `settings_list`:
+
+```json
+{
+  "@entity": "workbook",
+  "name": "report_workbook",
+  "sheets": [
+    {
+      "@entity": "sheet",
+      "name": "summary_sheet",
+      "blocks": [
+        {
+          "@entity": "table",
+          "name": "payment_table",
+          "header": ["reference", "amount"],
+          "rows": [["PAY-1", 150]]
+        },
+        {
+          "@entity": "list",
+          "name": "settings_list",
+          "items": [{"currency": "INR"}]
+        }
+      ]
+    }
+  ]
+}
+```
+
+The value `150` belongs to the `amount` column because both sit at index `1` in their respective arrays. The `settings_list` stores the key `currency` with the value `INR`.
+
+---
+
+## Tables
+
+A table block holds columnar data in two parts:
+
+- **`header`** — a flat JSON array of column name strings, e.g. `["reference", "amount"]`.
+- **`rows`** — a JSON array of arrays, where each inner array is one data row.
+
+Column alignment is positional: the value at index `i` in a row belongs to the column whose name is at index `i` in the header. Use `null` for an empty cell rather than omitting the element, so that all rows stay the same length and positional alignment is preserved:
+
+```json
+{
+  "@entity": "table",
+  "name": "payment_table",
+  "header": ["reference", "amount", "status"],
+  "rows": [
+    ["PAY-1", 150, "cleared"],
+    ["PAY-2", null, "pending"]
+  ]
+}
+```
+
+---
+
+## Lists
+
+A list block holds ordered key-value pairs. Each item is a single-property JSON object whose one key is the item key and whose value is the item value:
+
+```json
+{
+  "@entity": "list",
+  "name": "settings_list",
+  "items": [
+    {"currency": "INR"},
+    {"fiscal_year": 2024},
+    {"include_tax": true}
+  ]
+}
+```
+
+Values can be strings, numbers, booleans, or `null`. Representing items as single-property objects keeps the format compact and human-readable while giving each item an unambiguous key for programmatic lookup.
+
+---
+
+## Available packages
+
+Libraries live under `lib/<language>/<package>` in the repository. The Sheet Tools browser application lives under `frontend/nextjs/org-quicko-sheet-tools`.
+
+| Package | Language | Purpose |
+|---|---|---|
+| `@org-quicko/sheet` | Node.js | Read and update workbook data through TypeScript classes; convert workbook JSON into class instances and back. |
+| `@org-quicko/sheet-generator` | Node.js | Generate TypeScript classes from JSON Schema through the `schema-to-objects` command. |
+| `in.org.quicko.sheet:core` | Java | Read and update workbooks, sheets, tables, and lists; convert workbook JSON into Java objects and back. |
+| `in.org.quicko.sheet:generator` | Java | Generate Java classes and Jackson mixins from JSON Schema through a Maven plugin. |
+| Sheet Tools | Browser | Build workbook schemas and view or edit workbook data in a browser. |
+
+<Note>
+  Node.js applications must install `reflect-metadata` alongside `@org-quicko/sheet` and import it as the **very first** statement in the application entry point — before any Sheet JSON class is loaded by the module system. Decorator metadata will be missing at runtime if `reflect-metadata` is imported out of order, causing `getName()`, `getEntity()`, and type-discriminator lookups to return `undefined` silently.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Node.js installation" icon="node-js" href="nodejs/installation">
+    Install `@org-quicko/sheet`, configure TypeScript decorator support, and set up `reflect-metadata`.
+  </Card>
+  <Card title="Java installation" icon="java" href="java/installation">
+    Add `in.org.quicko.sheet:core` to your Maven project and start working with workbook data.
+  </Card>
+</CardGroup>

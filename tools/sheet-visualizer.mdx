@@ -1,0 +1,73 @@
+---
+title: "Sheet Visualizer: view and edit workbook data in the browser"
+sidebarTitle: "Sheet Visualizer"
+description: "Load a JSON workbook into the Sheet Visualizer to inspect tables and lists in an Excel-like interface, validate data against a schema, and edit values directly."
+---
+
+The Sheet Visualizer is a browser tool in Sheet Tools that displays workbook JSON in a spreadsheet-like interface, making it easy to inspect, edit, and validate data. Load any Sheet JSON workbook and the visualizer parses it into sheet tabs and block sections — table blocks appear as editable grids, and list blocks appear as key-value pair rows. Optionally load a JSON Schema alongside the workbook data to get inline validation feedback.
+
+## Running Sheet Tools locally
+
+Start the Sheet Tools development server with `pnpm dev` from the `frontend/nextjs/org-quicko-sheet-tools` directory, then navigate to **Sheet Visualizer** from the Sheet Tools home page. See [Running Sheet Tools locally](/tools/schema-builder#running-sheet-tools-locally) for the full setup steps.
+
+## Loading a workbook
+
+Open the **Import Data** dialog from the sidebar. The visualizer accepts workbook JSON in three ways:
+
+- **File upload** — click the upload area and select a `.json` file from your filesystem.
+- **Paste JSON** — switch to the **Paste JSON** tab and paste your workbook JSON directly into the text area.
+- **From URL** — switch to the **From URL** tab and enter a URL. The visualizer fetches the JSON at that address. You can also pass a `data_url` query parameter in the page URL to trigger auto-import on load.
+
+The visualizer validates the root structure before accepting the data. The JSON must be a workbook object with `"@entity": "workbook"` and a `sheets` array, where each sheet has `"@entity": "sheet"` and a `blocks` array. Invalid JSON or a missing `@entity` discriminator produces an inline error message.
+
+## Navigating sheets and blocks
+
+Once a workbook is loaded, the left sidebar displays a collapsible tree of sheets and blocks:
+
+- **Sheet rows** — each sheet is listed by its `name` value. Click a sheet row to expand or collapse its block list. The active sheet is highlighted.
+- **Block rows** — blocks are listed under their parent sheet. Each row shows the block name, a badge indicating its type (`table` or `list`), and a count of rows or items. Click a block to display it in the main content area.
+- **Error indicators** — when a schema is loaded and validation errors exist, affected sheets and blocks are highlighted with a red background and an alert icon.
+
+The block detail header shows the block name, type badge, row/column or item counts, and a summary of any validation errors for that block.
+
+## Schema-based validation
+
+Open the **Import Schema** dialog from the sidebar to load a JSON Schema alongside the workbook data. The schema can be imported from a file, pasted as text, or fetched from a URL. You can also pass a `schema_url` query parameter in the page URL to auto-import the schema on load.
+
+Once a schema is loaded, the visualizer re-validates the workbook continuously as you edit. Validation runs against all sheets and blocks with a short debounce delay. Cells that fail validation are highlighted with a red background; hovering or inspecting the cell reveals the specific error. The block header shows a count of errors for the currently selected block.
+
+To unload the schema without clearing the workbook data, click **Remove Schema** in the sidebar header.
+
+## Editing data
+
+Values in table blocks can be edited directly in the grid:
+
+- **Single-click** a cell to select it.
+- **Double-click** a cell to enter edit mode. An inline input field appears in the cell.
+- **Press Enter** or click away to commit the edit. The underlying workbook JSON is updated immediately.
+- **Press Escape** to cancel an edit without saving.
+
+List block rows display key-value pairs in a two-column grid. Both the key and value columns are editable using the same click-to-select, double-click-to-edit interaction. Editing a key renames the property in the source JSON object; editing a value updates the stored value.
+
+New rows or items can be added to any block using the **Add Data** button in the block header. The add-data dialog adapts to the block type — for table blocks it prompts for values matching each column header, and for list blocks it prompts for a key-value pair.
+
+To download the current state of the workbook as JSON, click **Export** in the sidebar header. The file is named after the workbook's `name` field.
+
+## Data persistence
+
+The Sheet Visualizer stores the loaded workbook data in your browser using IndexedDB. Your workbook state persists between sessions so you can close and reopen the browser without losing your data. Use the **Clear** button in the sidebar header to reset the visualizer and remove the stored data.
+
+<Note>
+  The visualizer uses a virtualized table component (powered by `@tanstack/react-virtual`) to render large datasets efficiently. Only the rows currently visible in the viewport are mounted in the DOM, so performance stays consistent even with hundreds or thousands of rows.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Schema Builder" icon="pencil-ruler" href="/tools/schema-builder">
+    Design workbook schemas visually and export the JSON Schema that drives validation and code generation.
+  </Card>
+  <Card title="Generators Overview" icon="code" href="/generators/overview">
+    Turn your exported schema into typed classes for Node.js or Java with the Sheet JSON code generators.
+  </Card>
+</CardGroup>

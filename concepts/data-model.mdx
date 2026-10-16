@@ -1,0 +1,216 @@
+---
+title: "Sheet JSON data model: Workbook, Sheet, Table, and List"
+sidebarTitle: "Data Model"
+description: "Explore the Sheet JSON class hierarchy — Workbook, Sheet, Block, Table, List, and Item — and how each layer maps to real spreadsheet concepts."
+---
+
+Sheet JSON organizes data into a four-level hierarchy that mirrors the structure of a real spreadsheet file: a `Workbook` contains one or more named `Sheet` objects, each `Sheet` contains one or more `Block` objects, and each `Block` is either a columnar `Table` or a key-value `List`. Understanding this hierarchy is the foundation for building, querying, and serializing data with the library.
+
+## Class hierarchy diagram
+
+The inheritance tree below shows both the containment relationship (what each class holds) and the class extension chain (what each class extends):
+
+```
+Workbook  (extends BaseObject)
+  │  holds Sheet[]
+  │
+  └─ Sheet  (extends BaseObject)
+       │  holds Block[]
+       │
+       ├─ Table  (extends Block → BaseObject)
+       │    ├─ header: JSONArray        (column names)
+       │    └─ rows:   JSONArray[]      (row data)
+       │
+       └─ List   (extends Block → BaseObject)
+            └─ items: Item[]            (key-value pairs)
+                  └─ Item  (key: string, value: JSONValue)
+```
+
+`Row` and `Column` are not part of the containment tree — they are projection types returned by `Table` methods (`getRow()` and `getColumns()`) and are never stored inside the class graph.
+
+## Workbook
+
+`Workbook` is the root container for all data. It holds an ordered array of `Sheet` objects and is decorated with `@Reflect.metadata('name', 'workbook')` and `@Reflect.metadata('@entity', 'workbook')`, so `getName()` returns `'workbook'` and `getEntity()` returns `'workbook'` by default. To rename a workbook, subclass it and supply your own `@Reflect.metadata('name', ...)` decorator.
+
+```typescript
+import { Workbook, Sheet } from '@org-quicko/sheet-core';
+
+const workbook = new Workbook();
+
+console.log(workbook.getName());    // 'workbook'
+console.log(workbook.getEntity());  // 'workbook'
+
+// Look up sheets
+const all   = workbook.getSheets();         // Array<Sheet>
+const first = workbook.getSheet(0);         // by zero-based index
+const named = workbook.getSheet('Sales');   // by name (case-insensitive)
+
+// Mutate
+const sheet = new Sheet();
+workbook.addSheet(sheet);
+workbook.replaceSheet(sheet);
+workbook.removeSheet('Sales');
+
+console.log(workbook.length()); // number of sheets
+```
+
+`getSheet(name)` performs case-insensitive matching and returns `null` when no match is found — so `getSheet('sales')`, `getSheet('SALES')`, and `getSheet('Sales')` all resolve to the same sheet. `getSheet(index)` throws `RangeError` if the index is out of bounds.
+
+## Sheet
+
+`Sheet` holds an ordered array of `Block` objects and is decorated with `@Reflect.metadata('name', 'sheet')` and `@Reflect.metadata('@entity', 'sheet')`. The `blocks` array uses a **polymorphic discriminator** on the `'@entity'` property so that `class-transformer` can reconstruct the correct concrete type (`Table` or `List`) when deserializing from plain JSON.
+
+```typescript
+import { Sheet, Table, List } from '@org-quicko/sheet-core';
+
+const sheet = new Sheet();
+
+// Add blocks
+const table = new Table();
+const list  = new List();
+sheet.addBlock(table);
+sheet.addBlock(list);
+
+// Retrieve by zero-based index or case-insensitive name
+const b0     = sheet.getBlock(0);
+const byName = sheet.getBlock('Revenue Table');
+
+// Mutate
+sheet.replaceBlock(updatedTable);
+sheet.removeBlock('Revenue Table');
+
+console.log(sheet.length()); // number of blocks
+```
+
+The discriminator configuration lives on the `blocks` property of `Sheet`:
+
+```typescript
+@Type(() => Block, {
+  keepDiscriminatorProperty: true,
+  discriminator: {
+    property: '@entity',
+    subTypes: [
+      { value: Table, name: SheetJsonEntityType.TABLE }, // 'table'
+      { value: List,  name: SheetJsonEntityType.LIST  }, // 'list'
+    ],
+  },
+})
+blocks?: Array<Block>;
+```
+
+Any plain object in the `blocks` array that carries `"@entity": "table"` is instantiated as a `Table`; one carrying `"@entity": "list"` is instantiated as a `List`.
+
+## Table
+
+`Table` is a columnar block that stores data in a `header` + `rows` layout. The `header` is a flat `JSONArray` of column name strings; `rows` is a `JSONArray` of `JSONArray` values, where each inner array holds one row's cells in the same order as the header. The `@entity` value is `'table'`.
+
+```typescript
+import { Table } from '@org-quicko/sheet-core';
+import { JSONArray } from '@org-quicko/core';
+
+const table = new Table();
+table.setHeader(new JSONArray(['id', 'product', 'price']));
+table.addRow(new JSONArray([1, 'Widget A', 9.99]));
+table.addRow(new JSONArray([2, 'Widget B', 14.99]));
+
+console.log(table.getHeader());   // JSONArray ['id', 'product', 'price']
+console.log(table.getRow(0));     // JSONArray [1, 'Widget A', 9.99]
+console.log(table.length());      // 2
+
+// Project columns — each Column starts with the header cell as element [0]
+const columns = table.getColumns();
+console.log(columns[0].getColumnHeader()); // 'id'
+console.log(columns[1]);                   // Column ['product', 'Widget A', 'Widget B']
+```
+
+`getColumns()` does not modify the underlying data — it constructs fresh `Column` instances each time it is called. Each `Column` has the corresponding header string as its first element (`[0]`), followed by that column's cells from each row in order.
+
+## List
+
+`List` is a key-value block suited for configuration records, report parameters, or any data that pairs a label with a scalar value. Items are stored as an `Array<Item>` and key lookup is always case-insensitive. The `@entity` value is `'list'`.
+
+```typescript
+import { List, Item } from '@org-quicko/sheet-core';
+
+const list = new List();
+list.addItem(new Item('environment', 'production'));
+list.addItem(new Item('version', '3.1.0'));
+list.addItem(new Item('max_retries', 5));
+
+// Case-insensitive key lookup
+const env = list.getItem('ENVIRONMENT'); // returns the Item with key 'environment'
+
+// Mutate
+list.replaceItem(new Item('version', '3.2.0'));
+list.removeItem('max_retries');  // remove by key
+list.removeItem(0);              // remove by zero-based index
+
+console.log(list.length()); // number of items
+```
+
+`replaceItem` matches by key (exact, not case-insensitive) and replaces in-place. If no matching item is found, the call is a no-op — it does **not** add a new item. Use `addItem` to append a new entry.
+
+## Item
+
+`Item` is the leaf node of a `List`. It holds a `string` key and a `JSONValue` (string, number, boolean, null, object, or array) value, and exposes typed accessors to cast the value without external conversions.
+
+```typescript
+import { Item } from '@org-quicko/sheet-core';
+
+const item = new Item('revenue', 142500);
+
+item.getKey();           // 'revenue'
+item.getValue();         // 142500  (JSONValue)
+item.getNumberValue();   // 142500  — Number(value)
+item.getStringValue();   // '142500' — String(value)
+item.getBooleanValue();  // true    — Boolean(value)
+
+// Equality: case-insensitive key comparison, strict value comparison
+item.equals(new Item('Revenue', 142500)); // true
+item.equals(new Item('Revenue', 0));      // false
+```
+
+`Item` does not extend `BaseObject` and carries no `@entity` metadata — it is a standalone class annotated only with `@Reflect.metadata('name', 'item')`. It is not serialized directly by `class-transformer`; instead, the `ListTransformer` handles its encoding and decoding as part of `List` serialization.
+
+## Row and Column
+
+`Row` and `Column` are typed projection types that complement `Table`. Neither is stored inside the `Table` — they are created on demand.
+
+- **`Row`** extends `JSONArray`. Construct one from an `Array<JSONValue>` and pass it directly to `table.addRow()`. `table.getRow(index)` returns the row at that position as a `JSONArray`.
+- **`Column`** extends `Array<JSONValue>`. The first element `[0]` is always the column's header string; every subsequent element is the corresponding cell value from each row. Call `getColumnHeader()` to retrieve element `[0]` as a `string`.
+
+```typescript
+import { Row, Column } from '@org-quicko/sheet-core';
+
+const row = new Row([1, 'Widget A', 9.99]);
+
+const col = new Column(['product', 'Widget A', 'Widget B']);
+console.log(col.getColumnHeader()); // 'product'
+console.log(col[1]);                // 'Widget A'
+console.log(col[2]);                // 'Widget B'
+```
+
+## BaseObject
+
+Every `Workbook`, `Sheet`, `Table`, and `List` instance inherits from `BaseObject`, which itself extends `CoreBaseObject` from `@org-quicko/core`. `BaseObject` provides four methods available on every node in the class graph:
+
+| Method | Return type | Description |
+|---|---|---|
+| `getName()` | `string` | Reads the `'name'` Reflect metadata from the constructor. Returns the class-level default (`'workbook'`, `'sheet'`, `'table'`, or `'list'`) unless overridden via a subclass decorator. |
+| `getEntity()` | `string` | Reads the `'@entity'` Reflect metadata. Used as the JSON discriminator key during serialization and deserialization. |
+| `getMetadata()` | `JSONObject` | Returns the object's user-defined metadata bag. Auto-initializes to an empty `JSONObject` if not yet set. |
+| `setMetadata(value)` | `void` | Replaces the metadata bag with a new `JSONObject`. |
+
+All four members are decorated with `@Expose()` so they participate in `class-transformer` serialization automatically whenever `instanceToPlain` is called with `{ excludeExtraneousValues: true }`.
+
+## Table vs. List: a quick comparison
+
+| Dimension | Table | List |
+|---|---|---|
+| **Structure** | `header: JSONArray` + `rows: JSONArray[]` | `items: Item[]` (key-value pairs) |
+| **Best for** | Columnar records — sales data, log entries, data exports | Configuration, metadata, summary statistics |
+| **XLSX representation** | Block name row → header row → data rows | Block name row → two-column key/value rows |
+| **Key access methods** | `getRow(index)`, `getColumns()`, `getHeader()` | `getItem(key)` (case-insensitive), `getItems()` |
+| **Primary element type** | `JSONArray` per row | `Item` (key: string, value: JSONValue) |
+| **`@entity` discriminator** | `'table'` | `'list'` |
+| **XLSX block naming rule** | Any name that does **not** end in `'list'` | Name **must** end with `'list'` (case-insensitive) |

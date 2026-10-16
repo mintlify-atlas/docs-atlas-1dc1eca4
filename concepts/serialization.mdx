@@ -1,0 +1,247 @@
+---
+title: "Serializing Sheet JSON objects with class-transformer"
+sidebarTitle: "Serialization"
+description: "Learn how Sheet JSON uses class-transformer decorators to serialize Workbook objects to plain JSON and reconstruct them with plainToInstance."
+---
+
+All Sheet JSON classes are instrumented with `class-transformer` decorators — `@Expose`, `@Type`, and `@Transform` — so that every node in the object graph can be converted to a plain JavaScript object and reconstructed back into fully typed class instances. The two functions you will reach for most often are `instanceToPlain` (class instance → JSON-compatible plain object) and `plainToInstance` (plain object → class instance). Understanding how these work, and why certain options are required, prevents the most common serialization pitfalls.
+
+## Serializing: instanceToPlain
+
+`instanceToPlain` walks a class instance and returns a plain JavaScript object whose shape matches the canonical Sheet JSON wire format. Pass `{ excludeExtraneousValues: true }` to restrict the output to only properties and methods decorated with `@Expose()`.
+
+```typescript
+import 'reflect-metadata'; // must be the first import — see below
+import { instanceToPlain } from 'class-transformer';
+import { Workbook } from '@org-quicko/sheet-core';
+import { Sheet } from '@org-quicko/sheet-core';
+import { Table } from '@org-quicko/sheet-core';
+import { List } from '@org-quicko/sheet-core';
+import { Item } from '@org-quicko/sheet-core';
+import { JSONArray } from '@org-quicko/core';
+
+// Build the object graph
+const workbook = new Workbook();
+
+const sheet = new Sheet();
+
+const table = new Table();
+table.setHeader(new JSONArray(['id', 'product', 'price']));
+table.addRow(new JSONArray([1, 'Widget A', 9.99]));
+table.addRow(new JSONArray([2, 'Widget B', 14.99]));
+
+const list = new List();
+list.addItem(new Item('period', 'Q1-2024'));
+list.addItem(new Item('currency', 'USD'));
+
+sheet.addBlock(table);
+sheet.addBlock(list);
+workbook.addSheet(sheet);
+
+// Serialize to a plain object
+const plain = instanceToPlain(workbook, { excludeExtraneousValues: true });
+
+// Safe to pass to JSON.stringify, store in a database, or send over HTTP
+console.log(JSON.stringify(plain, null, 2));
+```
+
+The resulting `plain` object contains no class prototypes or circular references. The output looks like:
+
+```json
+{
+  "@entity": "workbook",
+  "name": "workbook",
+  "metadata": {},
+  "sheets": [
+    {
+      "@entity": "sheet",
+      "name": "sheet",
+      "metadata": {},
+      "blocks": [
+        {
+          "@entity": "table",
+          "name": "table",
+          "metadata": {},
+          "header": ["id", "product", "price"],
+          "rows": [
+            [1, "Widget A", 9.99],
+            [2, "Widget B", 14.99]
+          ]
+        },
+        {
+          "@entity": "list",
+          "name": "list",
+          "metadata": {},
+          "items": [
+            { "period": "Q1-2024" },
+            { "currency": "USD" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Deserializing: plainToInstance
+
+`plainToInstance` takes a plain JavaScript object (from `JSON.parse()`, a database document, or an API response) and reconstructs the full Sheet JSON class graph with the correct concrete types at every level.
+
+```typescript
+import 'reflect-metadata';
+import { plainToInstance } from 'class-transformer';
+import { Workbook } from '@org-quicko/sheet-core';
+import { Table } from '@org-quicko/sheet-core';
+import { List } from '@org-quicko/sheet-core';
+
+const json = {
+  "@entity": "workbook",
+  "name": "workbook",
+  "metadata": {},
+  "sheets": [
+    {
+      "@entity": "sheet",
+      "name": "Q1 Report",
+      "metadata": {},
+      "blocks": [
+        {
+          "@entity": "table",
+          "name": "Revenue Table",
+          "metadata": {},
+          "header": ["id", "product", "price"],
+          "rows": [
+            [1, "Widget A", 9.99],
+            [2, "Widget B", 14.99]
+          ]
+        },
+        {
+          "@entity": "list",
+          "name": "Report Config list",
+          "metadata": {},
+          "items": [
+            { "period": "Q1-2024" },
+            { "currency": "USD" }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+// Reconstruct the full class graph
+const workbook = plainToInstance(Workbook, json);
+
+// All class methods are available on every node
+const sheet = workbook.getSheet(0);
+const table = sheet.getBlock('Revenue Table') as Table;
+const list  = sheet.getBlock('Report Config list') as List;
+
+console.log(table.getRow(0));                    // JSONArray [1, 'Widget A', 9.99]
+console.log(list.getItem('period')?.getValue()); // 'Q1-2024'
+```
+
+`plainToInstance` does not require `excludeExtraneousValues` — that option applies only to the outbound direction (`instanceToPlain`).
+
+## The excludeExtraneousValues option
+
+Sheet JSON uses `@Expose()` to declare exactly which properties and getter methods should appear in the serialized output. Without passing `{ excludeExtraneousValues: true }` to `instanceToPlain`, `class-transformer` will emit **all** enumerable properties on the instance — including internal bookkeeping fields and anything inherited from base classes that you did not intend to expose.
+
+```typescript
+// ✅ Correct — only @Expose()-decorated members are included
+const plain = instanceToPlain(workbook, { excludeExtraneousValues: true });
+
+// ⚠️  Incorrect — may include unintended private or inherited fields
+const plain = instanceToPlain(workbook);
+```
+
+The `@Expose()` decoration is set on the following members across the class hierarchy:
+
+| Class | Exposed members |
+|---|---|
+| `BaseObject` | `getName()` → `"name"`, `getEntity()` → `"@entity"`, `metadata` → `"metadata"` |
+| `Workbook` | `sheets` |
+| `Sheet` | `blocks` |
+| `Table` | `header`, `rows` |
+| `List` | `items` |
+
+`Item` is not serialized directly by `class-transformer` — it is handled by the `ListTransformer` (see below).
+
+## The @entity discriminator
+
+When `class-transformer` deserializes the `blocks` array inside a `Sheet`, it needs to know whether to call `new Table()` or `new List()`. This decision is driven by the `@entity` field on each plain block object, configured via a `@Type` discriminator on `Sheet.blocks`:
+
+```typescript
+@Type(() => Block, {
+  keepDiscriminatorProperty: true,
+  discriminator: {
+    property: '@entity',
+    subTypes: [
+      { value: Table, name: 'table' },
+      { value: List,  name: 'list'  },
+    ],
+  },
+})
+blocks?: Array<Block>;
+```
+
+`keepDiscriminatorProperty: true` tells `class-transformer` to retain the `@entity` string on the deserialized instance rather than stripping it after dispatch. This is essential for round-trips: if `@entity` were dropped during deserialization, a subsequent `instanceToPlain` call would omit the discriminator and the resulting JSON could not be deserialized again.
+
+Because `getEntity()` is annotated with `@Expose({ name: '@entity' })` in `BaseObject`, the discriminator is emitted automatically whenever you call `instanceToPlain(workbook, { excludeExtraneousValues: true })` — you do not need to set it manually.
+
+## The ListTransformer
+
+`List.items` uses a custom `@Transform` pair — `PlainToInstance` and `InstanceToPlain` — imported from the `ListTransformer` module, because the wire format for items is a compact array of single-key objects rather than a conventional `[{key, value}]` array.
+
+**Wire format (JSON):**
+
+```json
+"items": [
+  { "environment": "production" },
+  { "version": "3.1.0" },
+  { "max_retries": 5 }
+]
+```
+
+**In-memory representation:**
+
+```typescript
+[
+  new Item('environment', 'production'),
+  new Item('version', '3.1.0'),
+  new Item('max_retries', 5),
+]
+```
+
+The two transform functions handle the conversion automatically:
+
+- **`PlainToInstance`** (runs during `plainToInstance`) — receives the raw parent `List` plain object, reads `obj.items`, and maps each single-key object `{ [key]: value }` to `new Item(key, value)` by taking the first entry of `Object.entries(item)`.
+- **`InstanceToPlain`** (runs during `instanceToPlain`) — receives the `Array<Item>` and maps each `Item` back to a `JSONObject` with a single key set to `item.getKey()` and the value set to `item.getValue()`.
+
+You do not need to call these transformers directly — they are invoked automatically as part of the standard `instanceToPlain` / `plainToInstance` lifecycle whenever a `List` is serialized or deserialized.
+
+## reflect-metadata requirement
+
+<Warning>
+  `import 'reflect-metadata'` must be the **very first** import in your application entry point — before any Sheet JSON class, `class-transformer` function, or any other module that uses TypeScript decorators is loaded. If a decorated class is evaluated by the module system before `reflect-metadata` has run, the `Reflect` API will be missing and metadata lookups will fail silently, producing `undefined` for `getName()`, `getEntity()`, and the `@Type` discriminator lookups used to reconstruct `Table` and `List` instances.
+</Warning>
+
+```typescript
+// src/index.ts  ← application entry point
+import 'reflect-metadata';  // ← MUST be the very first import
+
+import { instanceToPlain, plainToInstance } from 'class-transformer';
+import { Workbook } from '@org-quicko/sheet-core';
+import { Sheet } from '@org-quicko/sheet-core';
+import { Table } from '@org-quicko/sheet-core';
+import { List } from '@org-quicko/sheet-core';
+import { Item } from '@org-quicko/sheet-core';
+import { JSONArray } from '@org-quicko/core';
+
+// ... rest of your application
+```
+
+If you are using a bundler that reorders imports (for example certain Webpack or esbuild configurations), ensure `reflect-metadata` is listed as the first entry in your bundle entry point or is explicitly imported before any decorator-using module.
+
+## Java serialization
+
+The Java library uses `JsonMapper` — a subclass of the Jackson `ObjectMapper` — for equivalent JSON I/O. `JsonMapper` is pre-configured with `JsonOrgModule` for `org.json` type support, `USE_BIG_DECIMAL_FOR_FLOATS` and `USE_BIG_INTEGER_FOR_INTS` deserialization features, and suppressed auto-detection of getters and setters so that only explicitly annotated properties are serialized. The resulting JSON shape is identical to the Node.js wire format described above. For full API details see [JsonMapper](/api/java/json-mapper).

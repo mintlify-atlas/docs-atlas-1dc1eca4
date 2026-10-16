@@ -1,0 +1,313 @@
+---
+title: "List class — Java API reference"
+sidebarTitle: "List"
+description: "Full API reference for the Java List bean in in.org.quicko.sheet:core: typed addItem overloads, key-based lookup, and mutation methods."
+---
+
+## Overview
+
+`List` is a concrete [`Block`](/api/java/sheet) subtype that stores an ordered collection of key-value [`Item`](/api/java/item) pairs. It is the Sheet JSON equivalent of a properties or metadata block. Nine typed `addItem` overloads cover all common Java numeric, boolean, and string types.
+
+**Package:** `in.org.quicko.sheet.beans`
+
+**Extends:** `Block` → `BaseObject`
+
+**Implements:** `java.io.Serializable`
+
+```java
+import in.org.quicko.sheet.beans.List;
+import in.org.quicko.sheet.beans.Item;
+```
+
+<Note>`in.org.quicko.sheet.beans.List` shadows `java.util.List`. Use fully qualified names or import carefully when both are needed in the same compilation unit.</Note>
+
+---
+
+## Jackson annotations
+
+| Annotation | Value | Effect |
+|---|---|---|
+| `@JsonTypeName` | `"list"` | Sets the JSON `name` discriminator field to `list` |
+| `@JsonIgnoreProperties` | `ignoreUnknown = true` | Unknown JSON fields are silently ignored during deserialization |
+| `@JsonTypeInfo` | `use = Id.NAME`, `include = AS.EXISTING_PROPERTY`, `property = "name"`, `visible = true` | Polymorphic type resolved from the existing `name` property |
+
+The items collection is serialized under the JSON key `"items"` via `@JsonProperty("items")`.
+
+---
+
+## Constructor
+
+### `List()`
+
+```java
+public List()
+```
+
+Default no-argument constructor. Initialises the `name` field to `"list"` via the parent `Block` constructor. The internal items `ArrayList` is lazily created on first access.
+
+---
+
+## Methods
+
+### `getItems()`
+
+```java
+public java.util.List<Item> getItems()
+```
+
+Returns all items in insertion order. If the internal list has not been initialised, an empty `ArrayList` is created and returned.
+
+**Returns:** `java.util.List<Item>` — the ordered items list, never `null`.
+
+---
+
+### `getItem(String key)`
+
+```java
+public Item getItem(String key)
+```
+
+Performs a case-insensitive linear search for an item by key.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `key` | `String` | The key to search for (case-insensitive) |
+
+**Returns:** `Item` — the first matching item, or `null` if not found.
+
+---
+
+### `getItem(int index)`
+
+```java
+public Item getItem(int index)
+```
+
+Returns the item at the given zero-based index.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based position in the items list |
+
+**Returns:** `Item` — the item at that position, or `null` if `index` is out of range.
+
+---
+
+### `addItem(Item item)`
+
+```java
+public void addItem(Item item)
+```
+
+Appends a pre-constructed `Item` to the end of the list.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `item` | `Item` | The item to append |
+
+---
+
+### Typed `addItem` overloads
+
+All eight typed overloads delegate to `addItem(Item)` after constructing a new `Item` internally. They provide a convenient single-call API for each supported value type.
+
+#### `addItem(String key, BigDecimal value)`
+
+```java
+public void addItem(String key, BigDecimal value)
+```
+
+#### `addItem(String key, BigInteger value)`
+
+```java
+public void addItem(String key, BigInteger value)
+```
+
+#### `addItem(String key, Boolean value)`
+
+```java
+public void addItem(String key, Boolean value)
+```
+
+#### `addItem(String key, Double value)`
+
+```java
+public void addItem(String key, Double value)
+```
+
+Double values are converted to `BigDecimal` internally via `Item(String, Double)`.
+
+#### `addItem(String key, Float value)`
+
+```java
+public void addItem(String key, Float value)
+```
+
+Float values are converted to `BigDecimal` internally via `Item(String, Float)`.
+
+#### `addItem(String key, Integer value)`
+
+```java
+public void addItem(String key, Integer value)
+```
+
+Integer values are converted to `BigDecimal` internally via `Item(String, Integer)`.
+
+#### `addItem(String key, Long value)`
+
+```java
+public void addItem(String key, Long value)
+```
+
+Long values are converted to `BigDecimal` internally via `Item(String, Long)`.
+
+#### `addItem(String key, String value)`
+
+```java
+public void addItem(String key, String value)
+```
+
+**Parameters (all typed overloads):**
+
+| Name | Type | Description |
+|---|---|---|
+| `key` | `String` | Unique key identifier for the item |
+| `value` | _(see type)_ | The value to store; numeric types are normalised to `BigDecimal` |
+
+---
+
+### `replaceItem(int index, Item item)`
+
+```java
+public void replaceItem(int index, Item item)
+```
+
+Replaces the item at the specified index with the provided `item`.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the item to replace |
+| `item` | `Item` | The replacement item |
+
+---
+
+### `replaceItem(Item item)`
+
+```java
+public void replaceItem(Item item)
+```
+
+Finds the first item whose key matches `item.getKey()` (case-insensitive) and replaces it in-place.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `item` | `Item` | The replacement item; its `key` determines which existing item is replaced |
+
+If no item with a matching key is found, the method returns without making changes.
+
+---
+
+### `removeItem(int index)`
+
+```java
+public void removeItem(int index)
+```
+
+Removes the item at the specified zero-based index.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the item to remove |
+
+---
+
+### `removeItem(String key)`
+
+```java
+public void removeItem(String key)
+```
+
+Removes all items whose key matches the given string (case-insensitive).
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `key` | `String` | Key of the item(s) to remove (case-insensitive) |
+
+---
+
+### `size()`
+
+```java
+public int size()
+```
+
+Returns the number of items in the list.
+
+**Returns:** `int` — the item count.
+
+---
+
+## Code example
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.List;
+import in.org.quicko.sheet.beans.Item;
+import in.org.quicko.sheet.mapper.JsonMapper;
+import java.math.BigDecimal;
+
+// Build a list block
+List config = new List();
+config.setName("AppConfig");
+
+// Typed convenience overloads
+config.addItem("appName",    "MyApp");
+config.addItem("version",    "3.0.1");
+config.addItem("maxRetries", 5);
+config.addItem("timeout",    30.0);
+config.addItem("enabled",    true);
+config.addItem("threshold",  new BigDecimal("0.95"));
+
+System.out.println("Item count: " + config.size()); // 6
+
+// Key-based lookup
+Item item = config.getItem("appName");
+System.out.println(item.getStringValue()); // MyApp
+
+// Index-based lookup
+Item second = config.getItem(1);
+System.out.println(second.getKey()); // version
+
+// Replace by key
+config.replaceItem(new Item("timeout", 60.0));
+
+// Remove by key
+config.removeItem("enabled");
+System.out.println("Item count after removal: " + config.size()); // 5
+
+// Serialize the list inside a workbook
+Sheet sheet = new Sheet();
+sheet.setName("Settings");
+sheet.addBlock(config);
+
+Workbook workbook = new Workbook();
+workbook.addSheet(sheet);
+
+JsonMapper mapper = new JsonMapper();
+System.out.println(mapper.writeValueAsString(workbook));
+```

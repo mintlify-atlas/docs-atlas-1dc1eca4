@@ -1,0 +1,308 @@
+---
+title: "Sheet class — Node.js API reference"
+sidebarTitle: "Sheet"
+description: "Full API reference for the Sheet class in @org-quicko/sheet: block accessors and inherited BaseObject methods."
+---
+
+## Overview
+
+`Sheet` represents a single worksheet inside a [`Workbook`](/api/nodejs/workbook). It contains an ordered collection of [`Block`](#block-discriminator) objects — each block is either a [`Table`](/api/nodejs/table) or a [`List`](/api/nodejs/list). All name comparisons on blocks are **case-insensitive**.
+
+`Sheet` extends [`BaseObject`](#inherited-baseobject-methods), which provides entity metadata accessors common to all Sheet JSON nodes.
+
+```typescript
+import { Workbook, Sheet, Table, List } from '@org-quicko/sheet';
+
+const workbook = new Workbook();
+const sheet = new Sheet();
+
+const table = new Table();
+sheet.addBlock(table);
+
+workbook.addSheet(sheet);
+```
+
+---
+
+## Block discriminator
+
+When a `Sheet` is deserialized from JSON or from an XLSX buffer, the `@entity` property on each block entry determines the concrete class that is instantiated:
+
+| `@entity` value | Class |
+|---|---|
+| `"table"` | [`Table`](/api/nodejs/table) |
+| `"list"` | [`List`](/api/nodejs/list) |
+
+This mapping is configured via the `class-transformer` discriminator on the `blocks` property:
+
+```typescript
+@Type(() => Block, {
+  keepDiscriminatorProperty: true,
+  discriminator: {
+    property: '@entity',
+    subTypes: [
+      { value: Table, name: SheetJsonEntityType.TABLE },  // 'table'
+      { value: List,  name: SheetJsonEntityType.LIST  },  // 'list'
+    ],
+  },
+})
+blocks?: Array<Block>;
+```
+
+---
+
+## Constructor
+
+### `new Sheet()`
+
+Creates a new, empty `Sheet` instance with an empty `blocks` array.
+
+```typescript
+const sheet = new Sheet();
+```
+
+---
+
+## Block accessors
+
+### `getBlocks()`
+
+Returns the full array of blocks in the sheet.
+
+**Signature**
+
+```typescript
+getBlocks(): Array<Block>
+```
+
+<ResponseField name="returns" type="Array<Block>">
+  All blocks currently in the sheet. Each element is a `Table` or `List` instance. Returns an empty array when no blocks have been added.
+</ResponseField>
+
+**Example**
+
+```typescript
+const blocks = sheet.getBlocks();
+blocks.forEach((block) => console.log(block.getName(), block.getEntity()));
+```
+
+---
+
+### `getBlock(index)` / `getBlock(name)`
+
+Overloaded method that retrieves a single block either by its zero-based index or by its name.
+
+**Signatures**
+
+```typescript
+getBlock(index: number): Block
+getBlock(name: string): Block | null
+```
+
+<ParamField path="index" type="number">
+  Zero-based position of the block within the sheet.
+</ParamField>
+
+<ParamField path="name" type="string">
+  Name of the block to look up. Comparison is case-insensitive.
+</ParamField>
+
+<ResponseField name="returns (index overload)" type="Block">
+  The `Block` at the given index.
+</ResponseField>
+
+<ResponseField name="returns (name overload)" type="Block | null">
+  The matching `Block`, or `null` if no block with that name exists.
+</ResponseField>
+
+**Throws**
+
+| Error | Condition |
+|---|---|
+| `RangeError` | `index` is greater than or equal to the number of blocks. |
+| `Error` | The argument is neither a `number` nor a `string`. |
+
+**Example**
+
+```typescript
+import { Table } from '@org-quicko/sheet';
+
+// By index
+const first = sheet.getBlock(0);
+
+// By name — cast to concrete type after checking entity
+const block = sheet.getBlock('sales_data');
+if (block instanceof Table) {
+  console.log('rows:', block.length());
+}
+```
+
+---
+
+### `addBlock(block)`
+
+Appends a block to the end of the sheet's block list.
+
+**Signature**
+
+```typescript
+addBlock(block: Block): void
+```
+
+<ParamField path="block" type="Block" required>
+  A `Table` or `List` instance to append.
+</ParamField>
+
+**Example**
+
+```typescript
+import { Table, List } from '@org-quicko/sheet';
+
+sheet.addBlock(new Table());
+sheet.addBlock(new List());
+```
+
+---
+
+### `replaceBlock(block)`
+
+Replaces the first block whose name matches `block.getName()` (case-insensitive). If no matching block is found, the call is a no-op.
+
+**Signature**
+
+```typescript
+replaceBlock(block: Block): void
+```
+
+<ParamField path="block" type="Block" required>
+  The replacement block. Its `name` is used to locate the existing block.
+</ParamField>
+
+**Example**
+
+```typescript
+const updatedTable = new Table(); // name resolves to 'table'
+sheet.replaceBlock(updatedTable);
+```
+
+---
+
+### `removeBlock(name)`
+
+Removes the first block with a matching name (case-insensitive). If no block with that name exists, the call is a no-op.
+
+**Signature**
+
+```typescript
+removeBlock(name: string): void
+```
+
+<ParamField path="name" type="string" required>
+  The name of the block to remove.
+</ParamField>
+
+**Example**
+
+```typescript
+sheet.removeBlock('sales_data');
+```
+
+---
+
+### `length()`
+
+Returns the number of blocks currently in the sheet.
+
+**Signature**
+
+```typescript
+length(): number
+```
+
+<ResponseField name="returns" type="number">
+  The count of blocks in the sheet.
+</ResponseField>
+
+**Example**
+
+```typescript
+console.log(`Sheet has ${sheet.length()} block(s)`);
+```
+
+---
+
+## Inherited BaseObject methods
+
+`Sheet` extends `BaseObject`, which stores entity-type and metadata information that is serialized into the Sheet JSON format.
+
+### `getName()`
+
+Returns the entity name string registered via `@Reflect.metadata('name', ...)`.
+
+**Signature**
+
+```typescript
+getName(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"sheet"` for `Sheet` instances.
+</ResponseField>
+
+---
+
+### `getEntity()`
+
+Returns the `@entity` discriminator string used in JSON serialization.
+
+**Signature**
+
+```typescript
+getEntity(): string
+```
+
+<ResponseField name="returns" type="string">
+  Always returns `"sheet"` for `Sheet` instances.
+</ResponseField>
+
+---
+
+### `getMetadata()`
+
+Returns the metadata object attached to this node. Lazily initialised to an empty `JSONObject` on first access.
+
+**Signature**
+
+```typescript
+getMetadata(): JSONObject
+```
+
+<ResponseField name="returns" type="JSONObject">
+  A `JSONObject` containing arbitrary user-defined metadata key-value pairs.
+</ResponseField>
+
+---
+
+### `setMetadata(value)`
+
+Replaces the metadata object for this node.
+
+**Signature**
+
+```typescript
+setMetadata(value: JSONObject): void
+```
+
+<ParamField path="value" type="JSONObject" required>
+  A `JSONObject` instance that will become the new metadata payload.
+</ParamField>
+
+**Example**
+
+```typescript
+import { JSONObject } from '@org-quicko/core';
+
+const meta = new JSONObject();
+meta.set('source', 'import-v2');
+sheet.setMetadata(meta);
+```

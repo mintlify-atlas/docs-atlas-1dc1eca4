@@ -1,0 +1,240 @@
+---
+title: "Table class — Java API reference"
+sidebarTitle: "Table"
+description: "Full API reference for the Java Table bean in in.org.quicko.sheet:core: header and row operations using JSONArray, and Jackson annotations."
+---
+
+## Overview
+
+`Table` is a concrete [`Block`](/api/java/sheet) subtype that stores tabular data as a header row and zero or more data rows. Both the header and rows are represented using `org.json.JSONArray`, so each row is itself a `JSONArray` of cell values.
+
+**Package:** `in.org.quicko.sheet.beans`
+
+**Extends:** `Block` → `BaseObject`
+
+**Implements:** `java.io.Serializable`
+
+```java
+import in.org.quicko.sheet.beans.Table;
+import org.json.JSONArray;
+```
+
+---
+
+## Jackson annotations
+
+| Annotation | Value | Effect |
+|---|---|---|
+| `@JsonTypeName` | `"table"` | Sets the JSON `name` discriminator field to `table` |
+| `@JsonIgnoreProperties` | `ignoreUnknown = true` | Unknown JSON fields are silently ignored during deserialization |
+| `@JsonTypeInfo` | `use = Id.NAME`, `include = AS.EXISTING_PROPERTY`, `property = "name"`, `visible = true` | Polymorphic type resolved from the existing `name` property |
+
+Both `header` and `rows` fields are serialized under their respective JSON keys via `@JsonProperty`.
+
+---
+
+## Constructor
+
+### `Table()`
+
+```java
+public Table()
+```
+
+Default no-argument constructor. Initialises the `name` field to `"table"` via the parent `Block` constructor. Both the `header` and `rows` `JSONArray` fields are lazily initialised on first access.
+
+---
+
+## Methods
+
+### `getHeader()`
+
+```java
+public JSONArray getHeader()
+```
+
+Returns the header row. If the header has not been set yet, an empty `JSONArray` is created, stored, and returned.
+
+**Returns:** `JSONArray` — the header array, never `null`.
+
+---
+
+### `setHeader(JSONArray header)`
+
+```java
+public void setHeader(JSONArray header)
+```
+
+Sets the header for this table.
+
+- If the current header is `null`, the supplied `header` is assigned directly.
+- If a header already exists, it is **cleared** and the supplied `header` is appended as a nested element.
+
+<Note>Use `setHeader` once before adding rows. Calling it a second time clears the existing header values.</Note>
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `header` | `JSONArray` | A `JSONArray` of column name strings |
+
+---
+
+### `getRows()`
+
+```java
+public JSONArray getRows()
+```
+
+Returns all rows as a `JSONArray` of `JSONArray` objects. Each inner `JSONArray` is a single data row. If rows have not been added yet, an empty `JSONArray` is created and returned.
+
+**Returns:** `JSONArray` — the rows array, never `null`.
+
+---
+
+### `getRow(int index)`
+
+```java
+public JSONArray getRow(int index)
+```
+
+Returns the data row at the specified zero-based index.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the row to retrieve |
+
+**Returns:** `JSONArray` — the row at the specified index.
+
+**Throws:** `ArrayIndexOutOfBoundsException` if `index` is greater than or equal to `size()`.
+
+---
+
+### `addRow(JSONArray row)`
+
+```java
+public void addRow(JSONArray row)
+```
+
+Appends a single row to the end of the rows array.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `row` | `JSONArray` | A `JSONArray` containing cell values for the new row |
+
+---
+
+### `addRows(JSONArray rows)`
+
+```java
+public void addRows(JSONArray rows)
+```
+
+Iterates over `rows` and appends each element to the table's rows array.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `rows` | `JSONArray` | A `JSONArray` of `JSONArray` rows to append |
+
+---
+
+### `replaceRow(int index, JSONArray row)`
+
+```java
+public void replaceRow(int index, JSONArray row)
+```
+
+Replaces the row at the specified index with the given `row`.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the row to replace |
+| `row` | `JSONArray` | The replacement row data |
+
+---
+
+### `removeRow(int index)`
+
+```java
+public void removeRow(int index)
+```
+
+Removes the row at the specified zero-based index.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the row to remove |
+
+---
+
+### `size()`
+
+```java
+public int size()
+```
+
+Returns the number of data rows in the table (does not count the header).
+
+**Returns:** `int` — the row count.
+
+---
+
+## Code example
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.Table;
+import in.org.quicko.sheet.mapper.JsonMapper;
+import org.json.JSONArray;
+
+// Create a table with a header and two data rows
+Table table = new Table();
+table.setName("Employees");
+table.setHeader(new JSONArray(java.util.List.of("ID", "Name", "Department")));
+
+table.addRow(new JSONArray(java.util.List.of(1, "Alice", "Engineering")));
+table.addRow(new JSONArray(java.util.List.of(2, "Bob",   "Marketing")));
+
+System.out.println("Row count: " + table.size()); // 2
+
+// Retrieve a specific row
+JSONArray firstRow = table.getRow(0);
+System.out.println("First row: " + firstRow); // [1, "Alice", "Engineering"]
+
+// Replace a row
+table.replaceRow(1, new JSONArray(java.util.List.of(2, "Bob", "Sales")));
+
+// Bulk-add rows
+JSONArray extraRows = new JSONArray();
+extraRows.put(new JSONArray(java.util.List.of(3, "Carol", "Finance")));
+extraRows.put(new JSONArray(java.util.List.of(4, "Dave",  "HR")));
+table.addRows(extraRows);
+
+System.out.println("Row count after bulk add: " + table.size()); // 4
+
+// Remove a row
+table.removeRow(0);
+System.out.println("Row count after removal: " + table.size()); // 3
+
+// Attach to a sheet and serialize
+Sheet sheet = new Sheet();
+sheet.setName("Staff");
+sheet.addBlock(table);
+
+Workbook workbook = new Workbook();
+workbook.addSheet(sheet);
+
+JsonMapper mapper = new JsonMapper();
+System.out.println(mapper.writeValueAsString(workbook));
+```

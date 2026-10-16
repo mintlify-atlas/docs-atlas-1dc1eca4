@@ -1,0 +1,207 @@
+---
+title: "Sheet class — Java API reference"
+sidebarTitle: "Sheet"
+description: "Full API reference for the Java Sheet bean in in.org.quicko.sheet:core: block accessors, mutation methods, and Jackson annotations."
+---
+
+## Overview
+
+`Sheet` represents a named tab within a [`Workbook`](/api/java/workbook). Each sheet holds an ordered list of [`Block`](/api/java/workbook) objects — concretely either [`Table`](/api/java/table) or [`List`](/api/java/list) instances.
+
+**Package:** `in.org.quicko.sheet.beans`
+
+**Extends:** `BaseObject`
+
+**Implements:** `java.io.Serializable`
+
+```java
+import in.org.quicko.sheet.beans.Sheet;
+```
+
+---
+
+## Jackson annotations
+
+| Annotation | Value | Effect |
+|---|---|---|
+| `@JsonTypeName` | `"sheet"` | Sets the JSON `name` discriminator field to `sheet` |
+| `@JsonIgnoreProperties` | `ignoreUnknown = true` | Unknown JSON fields are silently ignored during deserialization |
+| `@JsonTypeInfo` | `use = Id.NAME`, `include = AS.EXISTING_PROPERTY`, `property = "name"`, `visible = true` | Polymorphic type resolved from the existing `name` property in the JSON payload |
+
+The `blocks` list is serialized under the JSON key `"blocks"` via `@JsonProperty("blocks")`.
+
+---
+
+## Constructor
+
+### `Sheet()`
+
+```java
+public Sheet()
+```
+
+Default no-argument constructor. Initialises the `name` field to `"sheet"` via the parent `BaseObject` constructor. The internal blocks list is lazily created on first access.
+
+---
+
+## Methods
+
+### `getBlocks()`
+
+```java
+public java.util.List<Block> getBlocks()
+```
+
+Returns the complete list of blocks contained in this sheet. If the internal list has not been initialised yet, an empty `ArrayList` is created and returned.
+
+**Returns:** `List<Block>` — the ordered list of blocks, never `null`.
+
+---
+
+### `getBlock(int index)`
+
+```java
+public Block getBlock(int index)
+```
+
+Returns the block at the given zero-based position.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the block to retrieve |
+
+**Returns:** `Block` — the block at the specified index.
+
+**Throws:** `ArrayIndexOutOfBoundsException` if `index` is greater than or equal to the number of blocks.
+
+---
+
+### `getBlock(String name)`
+
+```java
+public Block getBlock(String name)
+```
+
+Performs a case-insensitive search for a block by name.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `name` | `String` | The block name to look up (case-insensitive) |
+
+**Returns:** `Block` — the first block whose name matches, or `null` if no match is found.
+
+---
+
+### `addBlock(Block block)`
+
+```java
+public void addBlock(Block block)
+```
+
+Appends a single block to the end of the blocks list. The `block` argument may be any concrete subclass of `Block` — typically a `Table` or a `List`.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `block` | `Block` | The block to append |
+
+---
+
+### `removeBlock(String name)`
+
+```java
+public void removeBlock(String name)
+```
+
+Removes the first block whose name matches the given string (case-insensitive).
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `name` | `String` | Name of the block to remove (case-insensitive) |
+
+If no matching block is found, the method returns without making changes.
+
+---
+
+### `replaceBlock(Block block)`
+
+```java
+public void replaceBlock(Block block)
+```
+
+Finds the existing block whose name matches the given block's name (case-insensitive) and replaces it in-place. Null entries in the blocks list are skipped safely.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `block` | `Block` | The replacement block; its `name` must match an existing block |
+
+If no block with a matching name is found, the method returns without making changes.
+
+---
+
+### `size()`
+
+```java
+public int size()
+```
+
+Returns the number of blocks currently held in the sheet.
+
+**Returns:** `int` — the block count.
+
+---
+
+## Code example
+
+```java
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.Table;
+import in.org.quicko.sheet.beans.List;
+import in.org.quicko.sheet.beans.Block;
+import in.org.quicko.sheet.beans.Item;
+import in.org.quicko.sheet.mapper.JsonMapper;
+import org.json.JSONArray;
+
+// Build a sheet with a table and a list
+Sheet sheet = new Sheet();
+sheet.setName("Overview");
+
+// Add a table block
+Table table = new Table();
+table.setName("Metrics");
+table.setHeader(new JSONArray(java.util.List.of("KPI", "Value")));
+table.addRow(new JSONArray(java.util.List.of("DAU", 12500)));
+sheet.addBlock(table);
+
+// Add a list block
+List metadata = new List();
+metadata.setName("Meta");
+metadata.addItem("author", "Alice");
+metadata.addItem("version", "2.1");
+sheet.addBlock(metadata);
+
+System.out.println("Block count: " + sheet.size());          // 2
+
+// Retrieve by name
+Block b = sheet.getBlock("Metrics");
+System.out.println("Found: " + b.getName());                 // Metrics
+
+// Replace a block
+Table updated = new Table();
+updated.setName("Metrics");
+updated.setHeader(new JSONArray(java.util.List.of("KPI", "Value", "Delta")));
+sheet.replaceBlock(updated);
+
+// Remove a block
+sheet.removeBlock("Meta");
+System.out.println("Block count after removal: " + sheet.size()); // 1
+```

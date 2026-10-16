@@ -1,0 +1,126 @@
+---
+title: "Generate typed classes from JSON Schema with Sheet JSON"
+sidebarTitle: "Overview"
+description: "Sheet JSON generators read a workbook JSON Schema and output typed classes for your language — TypeScript via CLI, Java POJOs via Maven — so you never write boilerplate."
+---
+
+Sheet JSON generators take a JSON Schema that describes your workbook structure and emit fully-typed, decorator-ready classes for your target language. Instead of maintaining model classes by hand, you define your data structures once in a schema and let the generator produce all the boilerplate — workbook classes, sheet classes, table and list types, mixin helpers, and a barrel index — keeping your code consistent and in sync every time the schema changes.
+
+## What gets generated
+
+For each schema file the generator processes, it produces a complete set of typed classes organized into subdirectories:
+
+| Output | Description |
+|--------|-------------|
+| `workbook/` | A top-level `Workbook` class typed to the sheets it contains |
+| `sheets/` | One class per sheet type, typed to its allowed block types |
+| `tables/` | One class per table block, including a typed row class |
+| `lists/` | One class per list block with typed entries |
+| `mixins/` | Jackson / decorator mixin classes used for serialization |
+| `index.ts` / package root | Barrel file re-exporting everything from the above directories |
+
+## The typical workflow
+
+<Steps>
+  <Step title="Define or obtain a JSON Schema">
+    Author a JSON Schema that describes your workbook — its sheets, blocks, columns, and types — or generate one from an existing Excel file or JSON workbook using the `excel-to-schema` / `json-to-schema` commands.
+  </Step>
+  <Step title="Run the generator">
+    Point the generator at your schema file or directory. For Node.js use `schema-to-objects`; for Java use `mvn generate-sources` with the Maven plugin configured.
+  </Step>
+  <Step title="Import generated classes">
+    Add the output directory to your project's source paths so your IDE and compiler can resolve the generated types. For TypeScript, import from the generated `index.ts`; for Java, the compile source root is registered automatically.
+  </Step>
+  <Step title="Build your workbook using typed accessors">
+    Instantiate the generated `Workbook`, `Sheet`, `Table`, and `List` classes in your application code. All fields and accessor methods are strongly typed against your schema.
+  </Step>
+  <Step title="Regenerate when schema changes">
+    Whenever you update the schema, re-run the generator. The output directory is fully overwritten, so your classes stay in sync with the latest schema without any manual editing.
+  </Step>
+</Steps>
+
+## Schema format
+
+The generator expects a JSON Schema that describes a workbook object. The top-level schema must have a `sheets` array property. Each sheet definition carries a `blocks` array whose items use `oneOf` to enumerate the allowed table and list types for that sheet.
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "sheets": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/SalesSheet" },
+          { "$ref": "#/$defs/SummarySheet" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "SalesSheet": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "enum": ["sales"] },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/OrdersTable" },
+              { "$ref": "#/$defs/ProductList" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+The generator resolves all `$ref` pointers within the schema, so you can freely split definitions across `$defs` sections.
+
+## Workflow diagram
+
+```
+JSON Schema
+    │
+    ▼
+┌──────────────────────┐
+│      Generator       │
+│  (CLI / Maven goal)  │
+└──────────────────────┘
+    │
+    ├── workbook/   ──► WorkbookClass.ts / .java
+    ├── sheets/     ──► SheetClass.ts / .java
+    ├── tables/     ──► TableClass + RowClass.ts / .java
+    ├── lists/      ──► ListClass.ts / .java
+    ├── mixins/     ──► MixinClass.ts / .java
+    └── index.ts    ──► barrel re-export
+    │
+    ▼
+Application code imports typed classes
+```
+
+## Choose your generator
+
+<CardGroup cols={2}>
+  <Card
+    title="Node.js Generator"
+    icon="node-js"
+    href="/generators/nodejs-generator"
+  >
+    Install `@org-quicko/sheet-generator` and use the `schema-to-objects` CLI command to generate TypeScript classes.
+  </Card>
+  <Card
+    title="Java Generator"
+    icon="java"
+    href="/generators/java-generator"
+  >
+    Add the `in.org.quicko.sheet:generator` Maven plugin and run `mvn generate-sources` to generate Java POJOs.
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Do not edit generated files directly.** All files inside the generator output directory are overwritten every time the generator runs. Put any customizations in separate classes that extend or wrap the generated types, so your changes survive regeneration.
+</Warning>

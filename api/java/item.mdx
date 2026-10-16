@@ -1,0 +1,304 @@
+---
+title: "Item class — Java API reference"
+sidebarTitle: "Item"
+description: "Full API reference for the Java Item class in in.org.quicko.sheet:core: constructor, key/value accessors, and typed value getters."
+---
+
+## Overview
+
+`Item` represents a single key-value pair within a [`List`](/api/java/list) block. The key is always a `String`; the value is typed at construction time but stored internally as either a `BigDecimal` (for all numeric types), a `Boolean`, or a `String`. Custom Jackson serialization and deserialization is handled by `CustomItemSerializer` / `CustomItemDeserializer`.
+
+**Package:** `in.org.quicko.sheet.beans`
+
+```java
+import in.org.quicko.sheet.beans.Item;
+```
+
+---
+
+## Jackson annotations
+
+| Annotation | Value | Effect |
+|---|---|---|
+| `@JsonSerialize` | `using = CustomItemSerializer.class` | Custom serializer writes `[key, value]` JSON tuples |
+| `@JsonDeserialize` | `using = CustomItemDeserializer.class` | Custom deserializer reconstructs key and value from JSON |
+
+---
+
+## Constructors
+
+`Item` provides a family of typed constructors. All numeric types are normalised internally to `BigDecimal` for lossless representation.
+
+### `Item(String key, Object value)`
+
+```java
+public Item(String key, Object value)
+```
+
+General-purpose constructor accepting any `Object` as the value. Use the typed constructors below when the value type is known.
+
+---
+
+### `Item(String key, BigDecimal value)`
+
+```java
+public Item(String key, BigDecimal value)
+```
+
+Stores the `BigDecimal` value as-is.
+
+---
+
+### `Item(String key, BigInteger value)`
+
+```java
+public Item(String key, BigInteger value)
+```
+
+Converts `BigInteger` to `BigDecimal` via `new BigDecimal(value)`.
+
+---
+
+### `Item(String key, Boolean value)`
+
+```java
+public Item(String key, Boolean value)
+```
+
+Stores the `Boolean` value directly.
+
+---
+
+### `Item(String key, Double value)`
+
+```java
+public Item(String key, Double value)
+```
+
+Converts `Double` to `BigDecimal` via `BigDecimal.valueOf(value)`. Stores `null` if the input is `null`.
+
+---
+
+### `Item(String key, Float value)`
+
+```java
+public Item(String key, Float value)
+```
+
+Converts `Float` to `BigDecimal` via `BigDecimal.valueOf(value)`. Stores `null` if the input is `null`.
+
+---
+
+### `Item(String key, Integer value)`
+
+```java
+public Item(String key, Integer value)
+```
+
+Converts `Integer` to `BigDecimal` via `BigDecimal.valueOf(value)`. Stores `null` if the input is `null`.
+
+---
+
+### `Item(String key, Long value)`
+
+```java
+public Item(String key, Long value)
+```
+
+Converts `Long` to `BigDecimal` via `BigDecimal.valueOf(value)`. Stores `null` if the input is `null`.
+
+---
+
+### `Item(String key, String value)`
+
+```java
+public Item(String key, String value)
+```
+
+Stores the `String` value directly.
+
+---
+
+## Accessors
+
+### `getKey()`
+
+```java
+public String getKey()
+```
+
+Returns the key identifier for this item.
+
+**Returns:** `String` — the key, never `null` for correctly constructed items.
+
+---
+
+### `getValue()`
+
+```java
+public Object getValue()
+```
+
+Returns the raw stored value as an `Object`. The concrete runtime type will be `BigDecimal`, `Boolean`, or `String` depending on which constructor was used.
+
+**Returns:** `Object` — the stored value, or `null` if none was set.
+
+---
+
+## Typed value getters
+
+These getters cast or convert the stored `Object` value to the requested type. Each returns `null` when the stored value is `null`.
+
+### `getStringValue()`
+
+```java
+public String getStringValue()
+```
+
+Returns the value as a `String`. The stored value must be a `String`.
+
+**Returns:** `String` or `null`.
+
+---
+
+### `getBigDecimalValue()`
+
+```java
+public BigDecimal getBigDecimalValue()
+```
+
+Returns the value as a `BigDecimal`. The stored value must be a `BigDecimal`.
+
+**Returns:** `BigDecimal` or `null`.
+
+---
+
+### `getBigIntegerValue()`
+
+```java
+public BigInteger getBigIntegerValue()
+```
+
+Converts the stored `BigDecimal` to `BigInteger` by truncating any fractional part via `.toBigInteger()`.
+
+**Returns:** `BigInteger` or `null`.
+
+---
+
+### `getBooleanValue()`
+
+```java
+public Boolean getBooleanValue()
+```
+
+Returns the value as a `Boolean`. The stored value must be a `Boolean`.
+
+**Returns:** `Boolean` or `null`.
+
+---
+
+### `getLongValue()`
+
+```java
+public Long getLongValue()
+```
+
+Converts the stored `BigDecimal` to `Long` via `.longValue()`.
+
+**Returns:** `Long` or `null`.
+
+---
+
+### `getDoubleValue()`
+
+```java
+public Double getDoubleValue()
+```
+
+Converts the stored `BigDecimal` to `Double` via `.doubleValue()`.
+
+**Returns:** `Double` or `null`.
+
+---
+
+### `getIntegerValue()`
+
+```java
+public Integer getIntegerValue()
+```
+
+Converts the stored `BigDecimal` to `Integer` via `.intValue()`.
+
+**Returns:** `Integer` or `null`.
+
+---
+
+## Additional methods
+
+### `equals(Item item)`
+
+```java
+public boolean equals(Item item)
+```
+
+Returns `true` if this item's key equals the given item's key (case-insensitive) **and** the values are equal per `Objects.equals`.
+
+---
+
+### `toString()`
+
+```java
+@Override
+public String toString()
+```
+
+Returns a human-readable representation: `"Item [key=<key>, value=<value>]"`.
+
+---
+
+## Type normalisation summary
+
+| Input type | Stored as |
+|---|---|
+| `BigDecimal` | `BigDecimal` |
+| `BigInteger` | `BigDecimal` (`new BigDecimal(bigInteger)`) |
+| `Double` | `BigDecimal` (`BigDecimal.valueOf(double)`) |
+| `Float` | `BigDecimal` (`BigDecimal.valueOf(float)`) |
+| `Integer` | `BigDecimal` (`BigDecimal.valueOf(int)`) |
+| `Long` | `BigDecimal` (`BigDecimal.valueOf(long)`) |
+| `Boolean` | `Boolean` |
+| `String` | `String` |
+
+---
+
+## Code example
+
+```java
+import in.org.quicko.sheet.beans.Item;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
+// String item
+Item nameItem = new Item("fullName", "Jane Doe");
+System.out.println(nameItem.getKey());          // fullName
+System.out.println(nameItem.getStringValue());  // Jane Doe
+
+// Numeric items — all stored as BigDecimal internally
+Item salaryItem = new Item("salary", 95000.50);
+System.out.println(salaryItem.getBigDecimalValue()); // 95000.5
+System.out.println(salaryItem.getDoubleValue());     // 95000.5
+System.out.println(salaryItem.getLongValue());       // 95000
+
+Item countItem = new Item("headcount", 42);
+System.out.println(countItem.getIntegerValue());     // 42
+System.out.println(countItem.getBigIntegerValue());  // 42
+
+// Boolean item
+Item activeItem = new Item("active", true);
+System.out.println(activeItem.getBooleanValue()); // true
+
+// Equality
+Item a = new Item("key", "value");
+Item b = new Item("KEY", "value");
+System.out.println(a.equals(b)); // true (case-insensitive key comparison)
+```

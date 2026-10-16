@@ -1,0 +1,235 @@
+---
+title: "Workbook class — Java API reference"
+sidebarTitle: "Workbook"
+description: "Full API reference for the Java Workbook bean in in.org.quicko.sheet:core: sheet accessors, mutation methods, and Jackson annotations."
+---
+
+## Overview
+
+`Workbook` is the root bean in the Sheet JSON data model. It holds an ordered list of [`Sheet`](/api/java/sheet) objects and is the entry point for serialization and deserialization via [`JsonMapper`](/api/java/json-mapper).
+
+**Package:** `in.org.quicko.sheet.beans`
+
+**Extends:** `BaseObject`
+
+**Implements:** `java.io.Serializable`
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+```
+
+---
+
+## Jackson annotations
+
+| Annotation | Value | Effect |
+|---|---|---|
+| `@JsonTypeName` | `"workbook"` | Sets the JSON `name` discriminator field to `workbook` |
+| `@JsonIgnoreProperties` | `ignoreUnknown = true` | Unknown JSON fields are silently ignored during deserialization |
+| `@JsonTypeInfo` | `use = Id.NAME`, `include = AS.EXISTING_PROPERTY`, `property = "name"`, `visible = true` | Polymorphic type resolved from the existing `name` property in the JSON payload |
+
+---
+
+## Constructor
+
+### `Workbook()`
+
+```java
+public Workbook()
+```
+
+Default no-argument constructor. Initialises the `name` field to `"workbook"` via the parent `BaseObject` constructor. The internal sheets list is lazily created on first access.
+
+---
+
+## Methods
+
+### `getSheets()`
+
+```java
+public java.util.List<Sheet> getSheets()
+```
+
+Returns the complete list of sheets contained in this workbook. If the internal list has not been initialised yet, an empty `ArrayList` is created and returned.
+
+**Returns:** `List<Sheet>` — the ordered list of sheets, never `null`.
+
+---
+
+### `getSheet(int index)`
+
+```java
+protected Sheet getSheet(int index)
+```
+
+Returns the sheet at the given zero-based position.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the sheet to retrieve |
+
+**Returns:** `Sheet` — the sheet at the specified index.
+
+**Throws:** `ArrayIndexOutOfBoundsException` if `index` is greater than or equal to the number of sheets.
+
+<Note>This method has `protected` visibility. Subclasses or code within the same package can call it directly; external callers should iterate `getSheets()` instead.</Note>
+
+---
+
+### `getSheet(String name)`
+
+```java
+protected Sheet getSheet(String name)
+```
+
+Performs a case-insensitive search for a sheet by name.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `name` | `String` | The sheet name to look up (case-insensitive) |
+
+**Returns:** `Sheet` — the first sheet whose name matches, or `null` if no match is found.
+
+<Note>This method has `protected` visibility.</Note>
+
+---
+
+### `addSheet(Sheet sheet)`
+
+```java
+protected void addSheet(Sheet sheet)
+```
+
+Appends a single sheet to the end of the sheets list.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `sheet` | `Sheet` | The sheet to append |
+
+<Note>This method has `protected` visibility.</Note>
+
+---
+
+### `addSheets(List<Sheet> sheets)`
+
+```java
+protected void addSheets(java.util.List<Sheet> sheets)
+```
+
+Appends all sheets in the provided list to the workbook's sheets list, in iteration order.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `sheets` | `List<Sheet>` | The collection of sheets to append |
+
+<Note>This method has `protected` visibility.</Note>
+
+---
+
+### `replaceSheet(Sheet sheet)`
+
+```java
+public void replaceSheet(Sheet sheet)
+```
+
+Finds the existing sheet whose name matches the given sheet's name (case-insensitive) and replaces it in-place.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `sheet` | `Sheet` | The replacement sheet; its `name` must match an existing sheet |
+
+If no sheet with a matching name is found, the method returns without making changes.
+
+---
+
+### `removeSheet(int index)`
+
+```java
+protected void removeSheet(int index)
+```
+
+Removes the sheet at the specified zero-based index.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `index` | `int` | Zero-based index of the sheet to remove |
+
+<Note>This method has `protected` visibility.</Note>
+
+---
+
+### `removeSheet(String name)`
+
+```java
+public void removeSheet(String name)
+```
+
+Removes the first sheet whose name matches the given string (case-insensitive).
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `name` | `String` | Name of the sheet to remove (case-insensitive) |
+
+If no matching sheet is found, the method returns without making changes.
+
+---
+
+### `size()`
+
+```java
+public int size()
+```
+
+Returns the number of sheets currently held in the workbook.
+
+**Returns:** `int` — the sheet count.
+
+---
+
+## Code example
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.Table;
+import in.org.quicko.sheet.mapper.JsonMapper;
+import org.json.JSONArray;
+
+// Build a workbook
+Workbook workbook = new Workbook();
+
+Sheet sheet = new Sheet();
+sheet.setName("Sales");
+
+Table table = new Table();
+table.setName("Q1");
+table.setHeader(new JSONArray(java.util.List.of("Region", "Revenue")));
+table.addRow(new JSONArray(java.util.List.of("North", 42000)));
+table.addRow(new JSONArray(java.util.List.of("South", 31500)));
+
+sheet.addBlock(table);
+workbook.addSheet(sheet);
+
+// Serialize to JSON
+JsonMapper mapper = new JsonMapper();
+String json = mapper.writeValueAsString(workbook);
+System.out.println(json);
+
+// Deserialize from JSON
+Workbook restored = mapper.readValue(json, Workbook.class);
+System.out.println("Sheet count: " + restored.size());
+```

@@ -1,0 +1,83 @@
+---
+title: "Install the Sheet JSON Java library with Maven"
+sidebarTitle: "Installation"
+description: "Add in.org.quicko.sheet:core to your Maven project, configure the Jackson ObjectMapper, and start working with Workbook beans in Java."
+---
+
+The Sheet JSON Java library (`in.org.quicko.sheet:core`, version `2.0.0`) provides a set of Jackson-serializable bean classes — `Workbook`, `Sheet`, `Table`, and `List` — that model spreadsheet-like data structures in plain Java objects. Under the hood it uses Apache POI for XLSX file I/O and Jackson for JSON serialization. The library requires **Java 25** (the Maven compiler plugin is configured with `<release>25</release>`).
+
+## Add to pom.xml
+
+Declare the dependency in your project's `pom.xml`:
+
+```xml
+<dependency>
+  <groupId>in.org.quicko.sheet</groupId>
+  <artifactId>core</artifactId>
+  <version>2.0.0</version>
+</dependency>
+```
+
+Maven Central resolves the artifact automatically; no additional repository configuration is required.
+
+## Dependencies
+
+The following libraries are included as transitive dependencies and do not need to be declared separately:
+
+| Library | Version |
+|---|---|
+| `org.apache.poi:poi` | 4.1.1 |
+| `org.apache.poi:poi-ooxml` | 4.1.1 |
+| `tools.jackson.core:jackson-databind` | managed by jackson-bom 3.1.3 |
+| `tools.jackson.datatype:jackson-datatype-json-org` | managed by jackson-bom 3.1.3 |
+| `org.json:json` | 20240303 |
+
+The Jackson BOM (`tools.jackson:jackson-bom:3.1.3`) is imported under `<dependencyManagement>`, so all Jackson module versions are aligned automatically.
+
+## Build from source
+
+If you need a local snapshot build — for example, to test an unreleased change — clone the repository and install with:
+
+```bash
+mvn -f lib/java/org-quicko-sheet-core/pom.xml install -Dgpg.skip=true
+```
+
+The `-Dgpg.skip=true` flag bypasses the GPG artifact-signing step that is required for Maven Central publishing but is not needed for a local install. After the command completes the artifact is available in your local `~/.m2` repository under `in.org.quicko.sheet:core:2.0.0`.
+
+## Verify the installation
+
+Create a simple `Workbook`, attach a `Sheet`, and round-trip it through `JsonMapper` to confirm the dependency is wired correctly:
+
+```java
+import in.org.quicko.sheet.beans.Workbook;
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.mapper.JsonMapper;
+
+public class InstallationCheck {
+    public static void main(String[] args) throws Exception {
+        // Build a minimal workbook
+        Workbook workbook = new Workbook();
+        Sheet sheet = new Sheet();
+        sheet.setName("summary");
+        workbook.addSheet(sheet);
+
+        // Serialize to JSON
+        JsonMapper mapper = new JsonMapper();
+        String json = mapper.writeValueAsString(workbook);
+        System.out.println(json);
+
+        // Deserialize back
+        Workbook restored = mapper.readValue(json, Workbook.class);
+        System.out.println("Sheets: " + restored.size());
+    }
+}
+```
+
+If the dependency is resolved correctly, the program prints the JSON representation of the workbook followed by `Sheets: 1`.
+
+---
+
+**Next steps**
+
+- [Working with Tables](java/working-with-tables) — create columnar data blocks and serialize them.
+- [Working with Lists](java/working-with-lists) — build key-value pair blocks with typed accessors.
