@@ -53,12 +53,8 @@ New rows or items can be added to any block using the **Add Data** button in the
 
 To download the current state of the workbook as JSON, click **Export** in the sidebar header. The file is named after the workbook's `name` field.
 
-## Data persistence
-
-The Sheet Visualizer stores the loaded workbook data in your browser using IndexedDB. Your workbook state persists between sessions so you can close and reopen the browser without losing your data. Use the **Clear** button in the sidebar header to reset the visualizer and remove the stored data.
-
 <Note>
-  The visualizer uses a virtualized table component (powered by `@tanstack/react-virtual`) to render large datasets efficiently. Only the rows currently visible in the viewport are mounted in the DOM, so performance stays consistent even with hundreds or thousands of rows.
+  The Sheet Visualizer holds workbook data in component state for the current browser session only. Refreshing or closing the page clears all loaded data. Use the **Export** button before leaving to save your work. The visualizer uses a virtualized table component (powered by `@tanstack/react-virtual`) to render large datasets efficiently — only the rows currently visible in the viewport are mounted in the DOM, so performance stays consistent even with hundreds or thousands of rows.
 </Note>
 
 ---

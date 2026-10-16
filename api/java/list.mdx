@@ -6,7 +6,7 @@ description: "Full API reference for the Java List bean in in.org.quicko.sheet:c
 
 ## Overview
 
-`List` is a concrete [`Block`](/api/java/sheet) subtype that stores an ordered collection of key-value [`Item`](/api/java/item) pairs. It is the Sheet JSON equivalent of a properties or metadata block. Nine typed `addItem` overloads cover all common Java numeric, boolean, and string types.
+`List` is a concrete [`Block`](/api/java/sheet) subtype that stores an ordered collection of key-value [`Item`](/api/java/item) pairs. It is the Sheet JSON equivalent of a properties or metadata block. Eight typed `addItem` overloads cover all common Java numeric, boolean, and string types.
 
 **Package:** `in.org.quicko.sheet.beans`
 
@@ -239,13 +239,13 @@ Removes the item at the specified zero-based index.
 public void removeItem(String key)
 ```
 
-Removes all items whose key matches the given string (case-insensitive).
+Iterates the items list and removes entries at each position where the key matches the given string (case-insensitive).
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| `key` | `String` | Key of the item(s) to remove (case-insensitive) |
+| `key` | `String` | Key of the item to remove (case-insensitive) |
 
 ---
 
@@ -306,7 +306,9 @@ sheet.setName("Settings");
 sheet.addBlock(config);
 
 Workbook workbook = new Workbook();
-workbook.addSheet(sheet);
+// addSheet() is protected; use getSheets().add() from external code,
+// or a generated Workbook subclass that exposes the method.
+workbook.getSheets().add(sheet);
 
 JsonMapper mapper = new JsonMapper();
 System.out.println(mapper.writeValueAsString(workbook));

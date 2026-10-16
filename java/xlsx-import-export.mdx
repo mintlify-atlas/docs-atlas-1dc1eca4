@@ -6,6 +6,10 @@ description: "Convert a Java Workbook bean to an XSSFWorkbook using WorkbookUtil
 
 The Java library uses Apache POI internally to convert a `Workbook` bean into a native Excel file. The entry point is the static method `WorkbookUtil.toExcel(Workbook workbook)`, which iterates over every `Sheet` and `Block` in the workbook and produces an `XSSFWorkbook` — Apache POI's in-memory representation of an `.xlsx` file. You can then write that object to a file, a byte array, or any `OutputStream`.
 
+<Note>
+XLSX **import** (reading an `.xlsx` file back into a `Workbook` bean) is **not supported in the Java library**. Only export is available via `WorkbookUtil.toExcel`. For JSON round-trips in Java, use `JsonMapper` directly.
+</Note>
+
 ## Export to XLSX
 
 ```java
@@ -16,21 +20,19 @@ import in.org.quicko.sheet.utils.WorkbookUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.json.JSONArray;
 import java.io.FileOutputStream;
-import java.util.List;
+import java.io.IOException;
 
 // Build a workbook with one table
 Table payments = new Table();
-payments.setName("payments");
-payments.setHeader(new JSONArray(List.of("id", "customer", "amount")));
-payments.addRow(new JSONArray(List.of(1001, "Acme Corp", 5400.00)));
-payments.addRow(new JSONArray(List.of(1002, "Globex",    1200.50)));
+payments.setHeader(new JSONArray().put("id").put("customer").put("amount"));
+payments.addRow(new JSONArray().put(1001).put("Acme Corp").put(5400.00));
+payments.addRow(new JSONArray().put(1002).put("Globex").put(1200.50));
 
 Sheet sheet = new Sheet();
-sheet.setName("Q1");
 sheet.addBlock(payments);
 
 Workbook workbook = new Workbook();
-workbook.addSheet(sheet);
+workbook.getSheets().add(sheet);
 
 // Convert to XSSFWorkbook and write to disk
 XSSFWorkbook excel = WorkbookUtil.toExcel(workbook);
@@ -41,18 +43,24 @@ try (FileOutputStream fos = new FileOutputStream("report.xlsx")) {
 excel.close();
 ```
 
-`WorkbookUtil.toExcel` throws `java.io.IOException` so callers must handle or declare it. Always close the `XSSFWorkbook` after writing to release the underlying file handles held by Apache POI.
+`WorkbookUtil.toExcel` has the signature:
+
+```java
+public static XSSFWorkbook toExcel(Workbook workbook) throws IOException
+```
+
+Callers must handle or declare `java.io.IOException`. Always close the `XSSFWorkbook` after writing to release the underlying file handles held by Apache POI.
 
 ## How blocks are exported
 
-Each `Sheet` becomes a tab in the Excel file named after `sheet.getName()`. Within the tab, blocks are laid out top-to-bottom in the order they were added.
+Each `Sheet` becomes a tab in the Excel file named after `sheet.getName()`. Within the tab, blocks are laid out top-to-bottom in the order they were added. Row numbering in the spreadsheet starts at **1** (not 0).
 
 ### Table blocks
 
 For each `Table`:
 
-1. **Title row** — the table's name is written into a merged cell spanning all header columns (centered horizontally and vertically).
-2. **Blank row** — one empty row separates the title from the header.
+1. **Title row** — the value of `table.getName()` (always `"table"`) is written into a merged cell spanning all header columns, centered horizontally and vertically.
+2. **Blank row** — one empty row separates the title from the header (`rowNum` is incremented by 2 after the title row, so row `titleRow + 1` is left blank).
 3. **Header row** — one row containing each column name from `table.getHeader()`.
 4. **Data rows** — one row per entry in `table.getRows()`, with each cell populated from the inner `JSONArray`.
 5. **Auto-sized columns** — `XSSFSheet.autoSizeColumn` is called for every column to fit content width.
@@ -61,9 +69,9 @@ For each `Table`:
 
 For each `List`:
 
-1. **Title row** — the list's name is written into a merged cell spanning two columns (centered horizontally and vertically).
-2. **Blank row** — one empty row separates the title from the data.
-3. **Key/value rows** — one row per `Item`: column A holds the key, column B holds the value.
+1. **Title row** — the value of `list.getName()` (always `"list"`) is written into a merged cell spanning **two columns** (column A and B, i.e. `columnCount = 2`), centered horizontally and vertically.
+2. **Blank row** — one empty row separates the title from the data (`rowNum` is incremented by 2 after the title row).
+3. **Key/value rows** — one row per `Item`: column A (index 0) holds the key, column B (index 1) holds the value. If the item is `null` or its key is `null`, an empty cell is created for column A. If the item is `null` or its value is `null`, an empty cell is created for column B.
 4. **Auto-sized columns** — both columns are auto-sized.
 
 ## Sheet naming
@@ -72,7 +80,8 @@ Excel sheet tab names are taken directly from `sheet.getName()`:
 
 ```java
 Sheet sheet = new Sheet();
-sheet.setName("Q1 Payments"); // becomes the Excel tab label
+// sheet.getName() returns "sheet" — this becomes the Excel tab label
+workbook.getSheets().add(sheet);
 ```
 
 <Note>
@@ -91,14 +100,12 @@ Excel enforces a **31-character limit** on sheet tab names. If `sheet.getName()`
 | `Double` | `setCellValue(double)` |
 | `Long` | `setCellValue(long)` |
 | `Boolean` | `setCellValue(boolean)` |
-| `null` | creates an empty cell |
+| `null` or `"null"` | creates an empty cell with no content |
 | Any other type | `setCellValue(value.toString())` |
 
-Values that are `null` or whose `toString()` equals `"null"` produce blank cells with no content.
+## XLSX import is not available
 
-## XLSX import
-
-XLSX import (reading an `.xlsx` file back into a `Workbook` bean) is **not supported in the Java library**. That capability is provided by the Node.js library. For JSON round-trips in Java, use `JsonMapper`:
+XLSX import is not supported in the Java library. To round-trip a workbook through JSON instead, use `JsonMapper`:
 
 ```java
 import in.org.quicko.sheet.mapper.JsonMapper;

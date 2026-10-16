@@ -1,14 +1,14 @@
 ---
-title: "List class — Node.js API reference"
+title: "List class — Sheet JSON Node.js SDK API reference guide"
 sidebarTitle: "List"
-description: "Full API reference for the List class in @org-quicko/sheet: item accessors, case-insensitive key lookup, and mutation methods."
+description: "Full API reference for the List class in @org-quicko/sheet: item accessors, case-insensitive key lookup, add/replace/remove methods, and XLSX naming rules."
 ---
 
 ## Overview
 
 `List` is a block type that represents a collection of key-value pairs, where each pair is an [`Item`](/api/nodejs/item). It is one of the two concrete block types that can be added to a [`Sheet`](/api/nodejs/sheet); the other is [`Table`](/api/nodejs/table).
 
-All key lookups are **case-insensitive**.
+Key lookups in `getItem` and `removeItem(key)` are **case-insensitive**. `replaceItem` uses a **case-sensitive** key match.
 
 `List` extends `Block`, which extends [`BaseObject`](#inherited-baseobject-methods).
 
@@ -150,7 +150,7 @@ list.addItems([
 
 ### `replaceItem(item)`
 
-Replaces the first item whose key **exactly** matches `item.getKey()`. If no matching item is found, the call is a no-op.
+Replaces the first item whose key matches `item.getKey()` using a **case-sensitive** (`===`) comparison. If no matching item is found, the call is a no-op.
 
 **Signature**
 
@@ -159,7 +159,7 @@ replaceItem(item: Item): void
 ```
 
 <ParamField path="item" type="Item" required>
-  The replacement `Item`. Its key is used to locate the existing item (exact match).
+  The replacement `Item`. Its key is used to locate the existing item using a case-sensitive exact match.
 </ParamField>
 
 **Example**

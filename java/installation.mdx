@@ -4,7 +4,7 @@ sidebarTitle: "Installation"
 description: "Add in.org.quicko.sheet:core to your Maven project, configure the Jackson ObjectMapper, and start working with Workbook beans in Java."
 ---
 
-The Sheet JSON Java library (`in.org.quicko.sheet:core`, version `2.0.0`) provides a set of Jackson-serializable bean classes — `Workbook`, `Sheet`, `Table`, and `List` — that model spreadsheet-like data structures in plain Java objects. Under the hood it uses Apache POI for XLSX file I/O and Jackson for JSON serialization. The library requires **Java 25** (the Maven compiler plugin is configured with `<release>25</release>`).
+The Sheet JSON Java library (`in.org.quicko.sheet:core`, version `2.0.0`) provides a set of Jackson-serializable bean classes — `Workbook`, `Sheet`, `Table`, and `List` — that model spreadsheet-like data structures in plain Java objects. Under the hood it uses Apache POI for XLSX file export and Jackson for JSON serialization. The library requires **Java 25** (the Maven compiler plugin is configured with `<release>25</release>`).
 
 ## Add to pom.xml
 
@@ -58,8 +58,7 @@ public class InstallationCheck {
         // Build a minimal workbook
         Workbook workbook = new Workbook();
         Sheet sheet = new Sheet();
-        sheet.setName("summary");
-        workbook.addSheet(sheet);
+        workbook.getSheets().add(sheet);
 
         // Serialize to JSON
         JsonMapper mapper = new JsonMapper();
@@ -74,6 +73,10 @@ public class InstallationCheck {
 ```
 
 If the dependency is resolved correctly, the program prints the JSON representation of the workbook followed by `Sheets: 1`.
+
+<Note>
+Each bean class has a fixed `name` derived from its `@JsonTypeName` annotation: `Workbook` is always `"workbook"`, `Sheet` is always `"sheet"`, `Table` is always `"table"`, and `List` is always `"list"`. There is no `setName` method — names are not configurable per instance.
+</Note>
 
 ---
 

@@ -19,7 +19,7 @@ Workbook  (extends BaseObject)
        │
        ├─ Table  (extends Block → BaseObject)
        │    ├─ header: JSONArray        (column names)
-       │    └─ rows:   JSONArray[]      (row data)
+       │    └─ rows:   JSONArray        (nested row arrays)
        │
        └─ List   (extends Block → BaseObject)
             └─ items: Item[]            (key-value pairs)
@@ -33,7 +33,7 @@ Workbook  (extends BaseObject)
 `Workbook` is the root container for all data. It holds an ordered array of `Sheet` objects and is decorated with `@Reflect.metadata('name', 'workbook')` and `@Reflect.metadata('@entity', 'workbook')`, so `getName()` returns `'workbook'` and `getEntity()` returns `'workbook'` by default. To rename a workbook, subclass it and supply your own `@Reflect.metadata('name', ...)` decorator.
 
 ```typescript
-import { Workbook, Sheet } from '@org-quicko/sheet-core';
+import { Workbook, Sheet } from '@org-quicko/sheet';
 
 const workbook = new Workbook();
 
@@ -61,7 +61,7 @@ console.log(workbook.length()); // number of sheets
 `Sheet` holds an ordered array of `Block` objects and is decorated with `@Reflect.metadata('name', 'sheet')` and `@Reflect.metadata('@entity', 'sheet')`. The `blocks` array uses a **polymorphic discriminator** on the `'@entity'` property so that `class-transformer` can reconstruct the correct concrete type (`Table` or `List`) when deserializing from plain JSON.
 
 ```typescript
-import { Sheet, Table, List } from '@org-quicko/sheet-core';
+import { Sheet, Table, List } from '@org-quicko/sheet';
 
 const sheet = new Sheet();
 
@@ -105,7 +105,7 @@ Any plain object in the `blocks` array that carries `"@entity": "table"` is inst
 `Table` is a columnar block that stores data in a `header` + `rows` layout. The `header` is a flat `JSONArray` of column name strings; `rows` is a `JSONArray` of `JSONArray` values, where each inner array holds one row's cells in the same order as the header. The `@entity` value is `'table'`.
 
 ```typescript
-import { Table } from '@org-quicko/sheet-core';
+import { Table } from '@org-quicko/sheet';
 import { JSONArray } from '@org-quicko/core';
 
 const table = new Table();
@@ -130,7 +130,7 @@ console.log(columns[1]);                   // Column ['product', 'Widget A', 'Wi
 `List` is a key-value block suited for configuration records, report parameters, or any data that pairs a label with a scalar value. Items are stored as an `Array<Item>` and key lookup is always case-insensitive. The `@entity` value is `'list'`.
 
 ```typescript
-import { List, Item } from '@org-quicko/sheet-core';
+import { List, Item } from '@org-quicko/sheet';
 
 const list = new List();
 list.addItem(new Item('environment', 'production'));
@@ -155,7 +155,7 @@ console.log(list.length()); // number of items
 `Item` is the leaf node of a `List`. It holds a `string` key and a `JSONValue` (string, number, boolean, null, object, or array) value, and exposes typed accessors to cast the value without external conversions.
 
 ```typescript
-import { Item } from '@org-quicko/sheet-core';
+import { Item } from '@org-quicko/sheet';
 
 const item = new Item('revenue', 142500);
 
@@ -180,7 +180,7 @@ item.equals(new Item('Revenue', 0));      // false
 - **`Column`** extends `Array<JSONValue>`. The first element `[0]` is always the column's header string; every subsequent element is the corresponding cell value from each row. Call `getColumnHeader()` to retrieve element `[0]` as a `string`.
 
 ```typescript
-import { Row, Column } from '@org-quicko/sheet-core';
+import { Row, Column } from '@org-quicko/sheet';
 
 const row = new Row([1, 'Widget A', 9.99]);
 
@@ -201,13 +201,13 @@ Every `Workbook`, `Sheet`, `Table`, and `List` instance inherits from `BaseObjec
 | `getMetadata()` | `JSONObject` | Returns the object's user-defined metadata bag. Auto-initializes to an empty `JSONObject` if not yet set. |
 | `setMetadata(value)` | `void` | Replaces the metadata bag with a new `JSONObject`. |
 
-All four members are decorated with `@Expose()` so they participate in `class-transformer` serialization automatically whenever `instanceToPlain` is called with `{ excludeExtraneousValues: true }`.
+`getName()`, `getEntity()`, and `metadata` are decorated with `@Expose()` so they participate in `class-transformer` serialization automatically whenever `instanceToPlain` is called with `{ excludeExtraneousValues: true }`. `setMetadata` is not exposed — it is a write-only mutator.
 
 ## Table vs. List: a quick comparison
 
 | Dimension | Table | List |
 |---|---|---|
-| **Structure** | `header: JSONArray` + `rows: JSONArray[]` | `items: Item[]` (key-value pairs) |
+| **Structure** | `header: JSONArray` + `rows: JSONArray` (of row arrays) | `items: Item[]` (key-value pairs) |
 | **Best for** | Columnar records — sales data, log entries, data exports | Configuration, metadata, summary statistics |
 | **XLSX representation** | Block name row → header row → data rows | Block name row → two-column key/value rows |
 | **Key access methods** | `getRow(index)`, `getColumns()`, `getHeader()` | `getItem(key)` (case-insensitive), `getItems()` |

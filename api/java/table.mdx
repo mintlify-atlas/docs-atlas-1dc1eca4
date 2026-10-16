@@ -233,7 +233,9 @@ sheet.setName("Staff");
 sheet.addBlock(table);
 
 Workbook workbook = new Workbook();
-workbook.addSheet(sheet);
+// addSheet() is protected; use getSheets().add() from external code,
+// or a generated Workbook subclass that exposes the method.
+workbook.getSheets().add(sheet);
 
 JsonMapper mapper = new JsonMapper();
 System.out.println(mapper.writeValueAsString(workbook));

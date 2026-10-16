@@ -1,12 +1,12 @@
 ---
-title: "WorkbookConverter class — Node.js API reference"
+title: "WorkbookConverter — Sheet JSON Node.js API reference"
 sidebarTitle: "WorkbookConverter"
-description: "API reference for WorkbookConverter in @org-quicko/sheet: converts between XLSX buffers and typed Workbook instances."
+description: "API reference for WorkbookConverter in @org-quicko/sheet: converts XLSX buffers to typed Workbook instances and serializes Workbook objects back to XLSX."
 ---
 
 ## Overview
 
-`WorkbookConverter` is the low-level conversion engine that bridges XLSX files and the Sheet JSON object model. It is used internally by the [`Workbook.fromXlsx`](/api/nodejs/workbook#workbookfromxlsxbuffer) and [`Workbook.toXlsx`](/api/nodejs/workbook#workboooktoxlsxworkbook) static helpers, which are the recommended entry points for most use-cases.
+`WorkbookConverter` is the low-level conversion engine that bridges XLSX files and the Sheet JSON object model. It is used internally by the [`Workbook.fromXlsx`](/api/nodejs/workbook#workbookfromxlsxbuffer) and [`Workbook.toXlsx`](/api/nodejs/workbook#workbooktoxlsxworkbook) static helpers, which are the recommended entry points for most use-cases.
 
 Use `WorkbookConverter` directly when you need to deserialize into a **subclass** of `Workbook` (e.g. a class that adds custom validation decorators).
 

@@ -56,6 +56,53 @@ mvn compile
 
 After execution, the plugin calls `project.addCompileSourceRoot(outputDirectory)`, so the generated classes are visible to `javac` during the `compile` phase without any additional configuration.
 
+## Additional goals
+
+The plugin provides two additional goals for generating a JSON Schema from existing data sources. Both goals are bound to the `generate-sources` phase by default.
+
+### `excel-to-schema`
+
+Reads an Excel file (`.xlsx` or `.xls`) and writes a `.schema.json` file to the output directory.
+
+```xml pom.xml
+<execution>
+  <goals>
+    <goal>excel-to-schema</goal>
+  </goals>
+  <configuration>
+    <sourcePath>${project.basedir}/src/main/resources/data.xlsx</sourcePath>
+    <!-- outputDirectory defaults to ${project.build.directory}/generated-sources/main/resources/schema -->
+  </configuration>
+</execution>
+```
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `sourcePath` | ✅ | — | Path to the `.xlsx` or `.xls` source file |
+| `outputDirectory` | ❌ | `${project.build.directory}/generated-sources/main/resources/schema` | Directory where the generated `.schema.json` file is written |
+| `workbookName` | ❌ | — | Optional name override for the generated workbook schema |
+
+### `json-to-schema`
+
+Reads a JSON workbook document and writes a `.schema.json` file to the output directory.
+
+```xml pom.xml
+<execution>
+  <goals>
+    <goal>json-to-schema</goal>
+  </goals>
+  <configuration>
+    <sourcePath>${project.basedir}/src/main/resources/workbook.json</sourcePath>
+    <!-- outputDirectory defaults to ${project.build.directory}/generated-sources/main/resources/schema -->
+  </configuration>
+</execution>
+```
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `sourcePath` | ✅ | — | Path to the JSON workbook source file |
+| `outputDirectory` | ❌ | `${project.build.directory}/generated-sources/main/resources/schema` | Directory where the generated `.schema.json` file is written |
+
 ## Build from source
 
 If you need to install the generator plugin locally (for example, to test a snapshot version or work from the repository), first ensure the core library is installed, then install the plugin:

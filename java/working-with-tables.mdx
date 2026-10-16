@@ -6,27 +6,27 @@ description: "Create, populate, and query Table beans with the Java Sheet JSON l
 
 A `Table` block represents columnar data with a fixed schema. It stores a `header` — a `JSONArray` of column name strings — and a `rows` collection — a `JSONArray` of `JSONArray` rows where each inner array holds the values for a single record. `Table` extends `Block`, so it can be added to any `Sheet` and serialized as part of a `Workbook`.
 
+Every `Table` instance always returns `"table"` from `getName()` — this value is derived from the `@JsonTypeName("table")` annotation and cannot be changed per instance. When a workbook is exported to XLSX, `"table"` is used as the section title for each table block.
+
 ## Creating a table
 
-Instantiate `Table`, assign a name, set the header, and add rows:
+Instantiate `Table`, set the header, and add rows:
 
 ```java
 import in.org.quicko.sheet.beans.Table;
 import org.json.JSONArray;
-import java.util.List;
 
 Table table = new Table();
-table.setName("products");
 
 // Define column headers
-table.setHeader(new JSONArray(List.of("id", "product", "amount")));
+table.setHeader(new JSONArray().put("id").put("product").put("amount"));
 
 // Add individual rows
-table.addRow(new JSONArray(List.of(1, "Widget A", 9.99)));
-table.addRow(new JSONArray(List.of(2, "Widget B", 14.50)));
+table.addRow(new JSONArray().put(1).put("Widget A").put(9.99));
+table.addRow(new JSONArray().put(2).put("Widget B").put(14.50));
 ```
 
-`setName` is inherited from `BaseObject`. Column count is determined by the length of the header array; there is no enforced schema validation, so row arrays may have fewer entries than the header if trailing values are absent.
+Column count is determined by the length of the header array; there is no enforced schema validation, so row arrays may have fewer entries than the header if trailing values are absent.
 
 ## Reading rows
 
@@ -38,7 +38,6 @@ JSONArray firstRow = table.getRow(0);
 System.out.println(firstRow.get(1)); // "Widget A"
 
 // Iterate over all rows
-JSONArray allRows = table.getRows();
 for (int i = 0; i < table.size(); i++) {
     JSONArray row = table.getRow(i);
     System.out.println(row);
@@ -53,8 +52,8 @@ for (int i = 0; i < table.size(); i++) {
 
 ```java
 JSONArray batch = new JSONArray();
-batch.put(new JSONArray(List.of(3, "Widget C", 4.75)));
-batch.put(new JSONArray(List.of(4, "Widget D", 22.00)));
+batch.put(new JSONArray().put(3).put("Widget C").put(4.75));
+batch.put(new JSONArray().put(4).put("Widget D").put(22.00));
 
 table.addRows(batch);
 System.out.println(table.size()); // 4
@@ -66,7 +65,7 @@ Use `replaceRow(int index, JSONArray row)` to overwrite a row at a given positio
 
 ```java
 // Correct the amount for row index 1
-table.replaceRow(1, new JSONArray(List.of(2, "Widget B", 15.00)));
+table.replaceRow(1, new JSONArray().put(2).put("Widget B").put(15.00));
 
 // Delete the last row
 table.removeRow(table.size() - 1);
@@ -83,11 +82,10 @@ import in.org.quicko.sheet.beans.Sheet;
 import in.org.quicko.sheet.beans.Workbook;
 
 Sheet sheet = new Sheet();
-sheet.setName("inventory");
 sheet.addBlock(table);
 
 Workbook workbook = new Workbook();
-workbook.addSheet(sheet);
+workbook.getSheets().add(sheet);
 ```
 
 Multiple blocks — Tables and Lists — can coexist on the same sheet. They are written to XLSX in the order they were added.
@@ -107,9 +105,9 @@ String json = mapper.writeValueAsString(workbook);
 // Deserialize
 Workbook restored = mapper.readValue(json, Workbook.class);
 
-// Retrieve the table from the restored workbook
-Table restoredTable = (Table) restored.getSheets().get(0).getBlock("products");
-System.out.println(restoredTable.size()); // 3
+// Retrieve the table from the restored workbook by index
+Table restoredTable = (Table) restored.getSheets().get(0).getBlock(0);
+System.out.println(restoredTable.size()); // number of rows
 ```
 
 Always use `JsonMapper` (not a plain `ObjectMapper`) to ensure the `JSONArray` fields and polymorphic `Block` subtypes are handled correctly.
@@ -122,25 +120,22 @@ import in.org.quicko.sheet.beans.Sheet;
 import in.org.quicko.sheet.beans.Workbook;
 import in.org.quicko.sheet.mapper.JsonMapper;
 import org.json.JSONArray;
-import java.util.List;
 
 // Build the table
 Table payments = new Table();
-payments.setName("payments");
-payments.setHeader(new JSONArray(List.of("payment_id", "customer", "amount", "status")));
+payments.setHeader(new JSONArray().put("payment_id").put("customer").put("amount").put("status"));
 
-payments.addRow(new JSONArray(List.of(1001, "Acme Corp",   5400.00, "settled")));
-payments.addRow(new JSONArray(List.of(1002, "Globex",      1200.50, "pending")));
-payments.addRow(new JSONArray(List.of(1003, "Initech",     8750.00, "settled")));
-payments.addRow(new JSONArray(List.of(1004, "Umbrella Co",  320.75, "failed")));
+payments.addRow(new JSONArray().put(1001).put("Acme Corp").put(5400.00).put("settled"));
+payments.addRow(new JSONArray().put(1002).put("Globex").put(1200.50).put("pending"));
+payments.addRow(new JSONArray().put(1003).put("Initech").put(8750.00).put("settled"));
+payments.addRow(new JSONArray().put(1004).put("Umbrella Co").put(320.75).put("failed"));
 
 // Attach to a sheet and workbook
 Sheet sheet = new Sheet();
-sheet.setName("Q1 Payments");
 sheet.addBlock(payments);
 
 Workbook workbook = new Workbook();
-workbook.addSheet(sheet);
+workbook.getSheets().add(sheet);
 
 // Serialize
 JsonMapper mapper = new JsonMapper();

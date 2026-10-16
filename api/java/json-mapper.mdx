@@ -1,7 +1,7 @@
 ---
 title: "JsonMapper — Java API reference"
 sidebarTitle: "JsonMapper"
-description: "API reference for JsonMapper in in.org.quicko.sheet:core: a Jackson ObjectMapper subclass configured for BigDecimal floats and workbook JSON deserialization."
+description: "API reference for JsonMapper in in.org.quicko.sheet:core: a Jackson 3.x ObjectMapper subclass configured for BigDecimal floats and Sheet JSON workbooks."
 ---
 
 ## Overview
@@ -107,7 +107,8 @@ list.setName("Settings");
 list.addItem("env", "production");
 list.addItem("debug", false);
 sheet.addBlock(list);
-original.addSheet(sheet);
+// addSheet() is protected; use getSheets().add() from external code.
+original.getSheets().add(sheet);
 
 // Serialize → Deserialize
 JsonMapper mapper = new JsonMapper();
@@ -122,6 +123,7 @@ System.out.println(restored.getSheets().get(0).getName());       // Config
 
 ## Notes
 
+- **Jackson version:** `JsonMapper` extends `tools.jackson.databind.json.JsonMapper`, which is the Jackson 3.x package. Jackson 3.x also processes `com.fasterxml.jackson` annotations for backward compatibility, which is why bean classes such as `Workbook`, `Sheet`, `Table`, and `List` can use `com.fasterxml.jackson.annotation.*` annotations alongside this mapper.
 - `JsonMapper` is **not** thread-safe for reconfiguration after construction, but a fully constructed instance is safe to share across threads for read/write operations (same thread-safety contract as `ObjectMapper`).
 - The `JsonOrgModule` dependency is `tools.jackson.datatype:jackson-datatype-json-org`. Ensure it is present on the classpath alongside `in.org.quicko.sheet:core`.
 - If you need to serialize [`Table`](/api/java/table) objects correctly, `JsonMapper` is required — a plain `ObjectMapper` will fail to handle `JSONArray` fields.

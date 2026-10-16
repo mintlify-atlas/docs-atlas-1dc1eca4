@@ -6,7 +6,7 @@ description: "Full API reference for the Java Sheet bean in in.org.quicko.sheet:
 
 ## Overview
 
-`Sheet` represents a named tab within a [`Workbook`](/api/java/workbook). Each sheet holds an ordered list of [`Block`](/api/java/workbook) objects — concretely either [`Table`](/api/java/table) or [`List`](/api/java/list) instances.
+`Sheet` represents a named tab within a [`Workbook`](/api/java/workbook). Each sheet holds an ordered list of `Block` objects — concretely either [`Table`](/api/java/table) or [`List`](/api/java/list) instances.
 
 **Package:** `in.org.quicko.sheet.beans`
 
@@ -204,4 +204,7 @@ sheet.replaceBlock(updated);
 // Remove a block
 sheet.removeBlock("Meta");
 System.out.println("Block count after removal: " + sheet.size()); // 1
+
+// Note: addSheet() is protected on Workbook; use getSheets().add() from
+// external code, or a generated Workbook subclass that exposes the method.
 ```

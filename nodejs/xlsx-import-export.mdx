@@ -51,7 +51,7 @@ The converter scans each Excel worksheet row-by-row and applies the following ru
 
 ## Epoch Date Handling
 
-`@org-quicko/sheet` performs automatic date conversion for any `Table` column or `List` item key whose name contains the substring `'epoch'` (case-insensitive, e.g. `created_epoch`, `placed_epoch`, `LAST_LOGIN_EPOCH`).
+`@org-quicko/sheet` performs automatic date conversion for any `Table` column or `List` item key whose name contains the substring `'epoch'` (case-sensitive — the key must contain the lowercase substring `epoch`, e.g. `created_epoch`, `placed_epoch`, `last_login_epoch`).
 
 | Direction  | Behavior                                                                              |
 |------------|---------------------------------------------------------------------------------------|

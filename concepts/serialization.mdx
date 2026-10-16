@@ -13,11 +13,7 @@ All Sheet JSON classes are instrumented with `class-transformer` decorators — 
 ```typescript
 import 'reflect-metadata'; // must be the first import — see below
 import { instanceToPlain } from 'class-transformer';
-import { Workbook } from '@org-quicko/sheet-core';
-import { Sheet } from '@org-quicko/sheet-core';
-import { Table } from '@org-quicko/sheet-core';
-import { List } from '@org-quicko/sheet-core';
-import { Item } from '@org-quicko/sheet-core';
+import { Workbook, Sheet, Table, List, Item } from '@org-quicko/sheet';
 import { JSONArray } from '@org-quicko/core';
 
 // Build the object graph
@@ -90,9 +86,7 @@ The resulting `plain` object contains no class prototypes or circular references
 ```typescript
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
-import { Workbook } from '@org-quicko/sheet-core';
-import { Table } from '@org-quicko/sheet-core';
-import { List } from '@org-quicko/sheet-core';
+import { Workbook, Table, List } from '@org-quicko/sheet';
 
 const json = {
   "@entity": "workbook",
@@ -230,11 +224,7 @@ You do not need to call these transformers directly — they are invoked automat
 import 'reflect-metadata';  // ← MUST be the very first import
 
 import { instanceToPlain, plainToInstance } from 'class-transformer';
-import { Workbook } from '@org-quicko/sheet-core';
-import { Sheet } from '@org-quicko/sheet-core';
-import { Table } from '@org-quicko/sheet-core';
-import { List } from '@org-quicko/sheet-core';
-import { Item } from '@org-quicko/sheet-core';
+import { Workbook, Sheet, Table, List, Item } from '@org-quicko/sheet';
 import { JSONArray } from '@org-quicko/core';
 
 // ... rest of your application

@@ -1,7 +1,7 @@
 ---
-title: "Working with List blocks in the Node.js library"
+title: "Working with List blocks in @org-quicko/sheet Node.js"
 sidebarTitle: "Lists"
-description: "Create, query, and update List blocks — key-value pair containers — with the @org-quicko/sheet Node.js library. Covers Item creation and typed value access."
+description: "Create, query, and update List blocks with the @org-quicko/sheet Node.js library. Covers Item creation, typed value access, and key-value lookup."
 ---
 
 A `List` is `@org-quicko/sheet`'s key-value block type. Where a `Table` models uniform rows of columnar data, a `List` is designed for heterogeneous records: application configuration, report summaries, audit metadata, or any named collection of values that do not share a schema. Each entry in a `List` is an `Item` — a typed key-value pair whose value is any `JSONValue` (string, number, boolean, `null`, `JSONObject`, or `JSONArray`). Like `Table`, a `List` lives inside a `Sheet` and is attached to it with `sheet.addBlock(list)`.
@@ -88,11 +88,15 @@ a.equals(c); // false — values differ
 
 ## Updating Items
 
-Replace an existing item in place with `replaceItem(item)` — the match is made by key. If no item with that key exists, the call is silently ignored; it does **not** insert a new item:
+Replace an existing item in place with `replaceItem(item)` — the match is made by **exact, case-sensitive** key comparison. If no item with that exact key exists, the call is silently ignored; it does **not** insert a new item:
 
 ```typescript
-// Updates the 'version' item in place
+// Updates the 'version' item in place (exact key match)
 config.replaceItem(new Item('version', '3.0.0'));
+
+// No-op — key 'Version' does not match 'version' (case-sensitive)
+config.replaceItem(new Item('Version', '3.0.0'));
+console.log(config.getItem('version')?.getValue()); // still '3.0.0' from above
 
 // No-op — 'nonExistent' is not in the list
 config.replaceItem(new Item('nonExistent', 'value'));

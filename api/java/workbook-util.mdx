@@ -128,7 +128,9 @@ summary.addItem("totalRevenue", 4100.00);
 summary.addItem("period", "Q1 2025");
 sheet.addBlock(summary);
 
-workbook.addSheet(sheet);
+// addSheet() is protected; use getSheets().add() from external code,
+// or a generated Workbook subclass that exposes the method.
+workbook.getSheets().add(sheet);
 
 // Convert to XLSX and write to a file
 XSSFWorkbook excel = WorkbookUtil.toExcel(workbook);

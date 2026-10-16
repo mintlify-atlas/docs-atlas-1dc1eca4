@@ -1,7 +1,7 @@
 ---
 title: "Sheet JSON generator CLI commands reference"
 sidebarTitle: "Commands"
-description: "Complete reference for all @org-quicko/sheet-generator CLI commands: excel-to-schema, json-to-schema, and schema-to-objects with all flags and usage examples."
+description: "Reference for all @org-quicko/sheet-generator CLI commands: excel-to-schema, json-to-schema, and schema-to-objects with flags, Maven goals, and examples."
 ---
 
 ## Overview
@@ -138,19 +138,9 @@ schema-to-objects --input <path> --output <path>
 - **Single file** — must be a `.json` file.
 - **Directory** — recursively walks the directory tree, processing every `.json` file found.
 
-#### Output structure
+#### Output
 
-For each processed schema file, TypeScript source files are generated under a subdirectory tree inside the output path:
-
-```
-<output>/
-  workbook/       # Workbook class
-  sheets/         # One class per sheet
-  tables/         # One class per table block
-  lists/          # One class per list block
-  mixins/         # Shared mixin interfaces
-  index.ts        # Barrel export of all generated classes
-```
+For each processed schema file, TypeScript source files are generated inside the specified output directory. The exact file layout depends on the schema structure.
 
 #### Examples
 

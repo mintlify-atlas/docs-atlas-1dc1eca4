@@ -1,7 +1,7 @@
 ---
 title: "Sheet JSON wire format: how workbooks serialize to JSON"
 sidebarTitle: "JSON Structure"
-description: "Understand the JSON representation of workbooks — the @entity discriminator, sheet blocks, table rows, and list items — for storage, APIs, and interoperability."
+description: "Understand the JSON representation of workbooks — the @entity discriminator, sheet blocks, table rows, and list items — for APIs and storage."
 ---
 
 Every Sheet JSON object has a canonical JSON shape that `class-transformer` reads and writes via `instanceToPlain` and `plainToInstance`. Knowing this shape lets you write tests against raw JSON payloads, store workbooks in document databases, build API integrations, and construct workbook objects in environments that do not use the Node.js SDK at all.

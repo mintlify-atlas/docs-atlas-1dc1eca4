@@ -6,16 +6,17 @@ description: "Create and query List beans — key-value pair containers — with
 
 A `List` block holds an ordered collection of `Item` objects, where each `Item` is a key-value pair. Unlike a `Table`, a `List` has no fixed schema — keys are arbitrary strings and values can be of different types within the same list. `List` extends `Block`, so it can be attached to a `Sheet` alongside `Table` blocks.
 
+Every `List` instance always returns `"list"` from `getName()` — this value is derived from the `@JsonTypeName("list")` annotation and cannot be changed per instance. Internally, items are stored in a `java.util.List<Item>`.
+
 ## Creating a list and adding items
 
-Instantiate `List`, give it a name, and add items using the typed `addItem` overloads:
+Instantiate `List`, and add items using the typed `addItem` overloads:
 
 ```java
 import in.org.quicko.sheet.beans.List;
 import java.math.BigDecimal;
 
 List config = new List();
-config.setName("app config list");
 
 // String value
 config.addItem("environment", "production");
@@ -47,14 +48,14 @@ Numeric values (except `String` and `Boolean`) are normalized to `BigDecimal` in
 
 ## Looking up items
 
-`getItem(String key)` performs a **case-insensitive** key lookup and returns the matching `Item`, or `null` if no match is found. `getItem(int index)` returns the item at a zero-based position, or `null` if the index is out of range. `getItems()` returns the full `java.util.List<Item>`:
+`getItem(String key)` performs a **case-insensitive** key lookup and returns the matching `Item`, or `null` if no match is found. `getItem(int index)` returns the item at a zero-based position, or `null` if the index is out of range (no exception is thrown). `getItems()` returns the full `java.util.List<Item>`:
 
 ```java
 // Look up by key (case-insensitive)
 Item env = config.getItem("Environment"); // matches "environment"
 System.out.println(env.getStringValue()); // "production"
 
-// Look up by position
+// Look up by position — returns null if out of range
 Item second = config.getItem(1); // "tax_rate"
 
 // Iterate over all items
@@ -112,13 +113,19 @@ config.removeItem("maintenance_mode");
 config.removeItem(0);
 ```
 
-## XLSX naming rule
+## Attaching to a sheet
 
-When a workbook is exported to XLSX via `WorkbookUtil.toExcel`, each block's name is used as a section title in the spreadsheet. For `List` blocks to be recognized correctly on import by the Node.js library, the block name **must end with the word `list`** (case-insensitive) — for example `"app config list"` or `"settings_list"`.
+`List` is a `Block`. Add it to a `Sheet` and attach that sheet to a `Workbook` the same way as a `Table`:
 
 ```java
-List settings = new List();
-settings.setName("settings_list"); // ✅ ends with "list" — importable from XLSX
+import in.org.quicko.sheet.beans.Sheet;
+import in.org.quicko.sheet.beans.Workbook;
+
+Sheet sheet = new Sheet();
+sheet.addBlock(config);
+
+Workbook workbook = new Workbook();
+workbook.getSheets().add(sheet);
 ```
 
 ## Practical example — application config
@@ -132,7 +139,6 @@ import java.math.BigDecimal;
 
 // Build the list
 List appConfig = new List();
-appConfig.setName("app config list");
 
 appConfig.addItem("app_name",        "Payments Dashboard");
 appConfig.addItem("version",         "3.2.1");
@@ -142,11 +148,10 @@ appConfig.addItem("debug_mode",      false);
 
 // Attach to a sheet and workbook
 Sheet sheet = new Sheet();
-sheet.setName("config");
 sheet.addBlock(appConfig);
 
 Workbook workbook = new Workbook();
-workbook.addSheet(sheet);
+workbook.getSheets().add(sheet);
 
 // Serialize to JSON
 JsonMapper mapper = new JsonMapper();
@@ -155,7 +160,7 @@ System.out.println(json);
 
 // Deserialize and read back
 Workbook restored = mapper.readValue(json, Workbook.class);
-List restoredList = (List) restored.getSheets().get(0).getBlock("app config list");
-System.out.println(restoredList.getItem("app_name").getStringValue()); // "Payments Dashboard"
+List restoredList = (List) restored.getSheets().get(0).getBlock(0);
+System.out.println(restoredList.getItem("app_name").getStringValue());    // "Payments Dashboard"
 System.out.println(restoredList.getItem("session_timeout").getLongValue()); // 3600
 ```

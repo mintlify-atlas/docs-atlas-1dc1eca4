@@ -222,7 +222,9 @@ table.addRow(new JSONArray(java.util.List.of("North", 42000)));
 table.addRow(new JSONArray(java.util.List.of("South", 31500)));
 
 sheet.addBlock(table);
-workbook.addSheet(sheet);
+// addSheet() is protected; use getSheets().add() from external code,
+// or call addSheet() from a generated Workbook subclass.
+workbook.getSheets().add(sheet);
 
 // Serialize to JSON
 JsonMapper mapper = new JsonMapper();

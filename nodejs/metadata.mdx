@@ -54,7 +54,7 @@ console.log(workbook.getMetadata().get('nonExistent')); // undefined
 
 ## Metadata in Serialized JSON
 
-When a Sheet JSON object is serialized — for example via `JSON.stringify` — the `metadata` field appears as a `"metadata"` property at the same level as `@entity`, `name`, and any block or sheet arrays. This behavior is enforced by the `@Expose({ name: 'metadata' })` decorator on `BaseObject`:
+When a Sheet JSON object is serialized — for example via `JSON.stringify` — the `metadata` field appears as a `"metadata"` property at the same level as `@entity`, `name`, and any block or sheet arrays, provided it has been written (either by calling `getMetadata()` at least once, or by calling `setMetadata(...)`). This behavior is enforced by the `@Expose({ name: 'metadata' })` decorator on `BaseObject`:
 
 ```json
 {
